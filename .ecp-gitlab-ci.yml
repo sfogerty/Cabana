@@ -12,8 +12,6 @@ stages:
   stage: buildKokkos
   script:
     - CI_PROJECT_DIR=${PWD}
-    - module load gcc
-    - module avail
     - module load cuda
     - j="$(grep -c processor /proc/cpuinfo 2>/dev/null)" || j=0; ((j++))
     - for i in ${BACKENDS}; do KOKKOS_OPTS+=( --with-${i,,[A-Z]} ); done
@@ -38,7 +36,6 @@ stages:
   script:
     - CI_PROJECT_DIR=${PWD}
     - module load cmake
-    - module load gcc
     - module load cuda
     - for i in ${BACKENDS}; do CMAKE_OPTS+=( -DCabana_ENABLE_${i}=ON ); done
     - j="$(grep -c processor /proc/cpuinfo 2>/dev/null)" || j=0; ((j++))
