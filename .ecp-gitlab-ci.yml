@@ -13,6 +13,8 @@ stages:
   script:
     - CI_PROJECT_DIR=${PWD}
     - module load gcc
+    - module avail
+    - module load cuda
     - j="$(grep -c processor /proc/cpuinfo 2>/dev/null)" || j=0; ((j++))
     - for i in ${BACKENDS}; do KOKKOS_OPTS+=( --with-${i,,[A-Z]} ); done
     - git clone --depth=1 https://github.com/kokkos/kokkos.git &&
@@ -37,6 +39,7 @@ stages:
     - CI_PROJECT_DIR=${PWD}
     - module load cmake
     - module load gcc
+    - module load cuda
     - for i in ${BACKENDS}; do CMAKE_OPTS+=( -DCabana_ENABLE_${i}=ON ); done
     - j="$(grep -c processor /proc/cpuinfo 2>/dev/null)" || j=0; ((j++))
     - mkdir build && cd build &&
@@ -49,62 +52,74 @@ stages:
   dependencies:
    - BuildKokkos
 
-BuildKokkos Serial:
+#BuildKokkos Serial:
+#  variables:
+#    BACKENDS: "Serial"
+#  extends: .BuildKokkos
+#
+#Build Serial:
+#  variables:
+#    BACKENDS: "Serial"
+#  extends: .Build
+#  dependencies:
+#   - BuildKokkos Serial
+
+BuildKokkos Cuda:
   variables:
-    BACKENDS: "Serial"
+    BACKENDS: "Cuda"
   extends: .BuildKokkos
 
-Build Serial:
+Build Cuda:
   variables:
-    BACKENDS: "Serial"
+    BACKENDS: "Cuda"
   extends: .Build
   dependencies:
-   - BuildKokkos Serial
+   - BuildKokkos Cuda
 
-BuildKokkos OpenMP:
-  variables:
-    BACKENDS: "OpenMP"
-  extends: .BuildKokkos
-
-Build OpenMP:
-  variables:
-    BACKENDS: "OpenMP"
-  extends: .Build
-  dependencies:
-   - BuildKokkos OpenMP
-
-BuildKokkos Pthread:
-  variables:
-    BACKENDS: "Pthread"
-  extends: .BuildKokkos
-
-Build Pthread:
-  variables:
-    BACKENDS: "Pthread"
-  extends: .Build
-  dependencies:
-   - BuildKokkos Pthread
-
-BuildKokkos Serial Pthread:
-  variables:
-    BACKENDS: "Serial Pthread"
-  extends: .BuildKokkos
-
-Build Serial Pthread:
-  variables:
-    BACKENDS: "Serial Pthread"
-  extends: .Build
-  dependencies:
-   - BuildKokkos Serial Pthread
-
-BuildKokkos Serial OpenMP:
-  variables:
-    BACKENDS: "Serial OpenMP"
-  extends: .BuildKokkos
-
-Build Serial OpenMP:
-  variables:
-    BACKENDS: "Serial OpenMP"
-  extends: .Build
+#BuildKokkos OpenMP:
+#  variables:
+#    BACKENDS: "OpenMP"
+#  extends: .BuildKokkos
+#
+#Build OpenMP:
+#  variables:
+#    BACKENDS: "OpenMP"
+#  extends: .Build
+#  dependencies:
+#   - BuildKokkos OpenMP
+#
+#BuildKokkos Pthread:
+#  variables:
+#    BACKENDS: "Pthread"
+#  extends: .BuildKokkos
+#
+#Build Pthread:
+#  variables:
+#    BACKENDS: "Pthread"
+#  extends: .Build
+#  dependencies:
+#   - BuildKokkos Pthread
+#
+#BuildKokkos Serial Pthread:
+#  variables:
+#    BACKENDS: "Serial Pthread"
+#  extends: .BuildKokkos
+#
+#Build Serial Pthread:
+#  variables:
+#    BACKENDS: "Serial Pthread"
+#  extends: .Build
+#  dependencies:
+#   - BuildKokkos Serial Pthread
+#
+#BuildKokkos Serial OpenMP:
+#  variables:
+#    BACKENDS: "Serial OpenMP"
+#  extends: .BuildKokkos
+#
+#Build Serial OpenMP:
+#  variables:
+#    BACKENDS: "Serial OpenMP"
+#  extends: .Build
   dependencies:
    - BuildKokkos Serial OpenMP
