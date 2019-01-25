@@ -13,6 +13,7 @@ stages:
   script:
     - CI_PROJECT_DIR=${PWD}
     - module load cuda
+    - module load gcc/6.4.0
     - j="$(grep -c processor /proc/cpuinfo 2>/dev/null)" || j=0; ((j++))
     - for i in ${BACKENDS}; do KOKKOS_OPTS+=( --with-${i,,[A-Z]} ); done
     - git clone --depth=1 https://github.com/kokkos/kokkos.git &&
@@ -37,6 +38,7 @@ stages:
     - CI_PROJECT_DIR=${PWD}
     - module load cmake
     - module load cuda
+    - module load gcc/6.4.0
     - for i in ${BACKENDS}; do CMAKE_OPTS+=( -DCabana_ENABLE_${i}=ON ); done
     - j="$(grep -c processor /proc/cpuinfo 2>/dev/null)" || j=0; ((j++))
     - mkdir build && cd build &&
