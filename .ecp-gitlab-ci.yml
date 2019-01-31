@@ -1,7 +1,7 @@
 # see https://docs.gitlab.com/ce/ci/yaml/README.html for all available options
 variables:
   CI_DEBUG_SERVICES: trace
-  SCHEDULER_PARAMETERS: "-P STF002 -J ginsburgtest -W 0:03 -nnodes 2"
+  SCHEDULER_PARAMETERS: "-P GEN007CITEST -J ginsburgtest -W 0:03 -nnodes 2"
 
 stages:
   - buildKokkos
