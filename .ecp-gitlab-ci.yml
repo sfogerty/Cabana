@@ -42,7 +42,7 @@ stages:
     - for i in ${BACKENDS}; do CMAKE_OPTS+=( -DCabana_ENABLE_${i}=ON ); done
     - j="$(grep -c processor /proc/cpuinfo 2>/dev/null)" || j=0; ((j++))
     - mkdir build && cd build &&
-      cmake -DCMAKE_PREFIX_PATH=${CI_PROJECT_DIR}/kokkos.install -DCabana_ENABLE_TESTING=ON -DCabana_ENABLE_Serial=OFF -DCabana_ENABLE_EXAMPLES=OFF ${CMAKE_OPTS[@]} .. &&
+      cmake -DCMAKE_PREFIX_PATH=${CI_PROJECT_DIR}/kokkos.install -DCabana_ENABLE_TESTING=ON -DCabana_ENABLE_Serial=OFF -DCabana_ENABLE_EXAMPLES=OFF ${CMAKE_OPTS[@]} ${CMAKE_EXTRA_ARG} .. &&
       make -k -j${j} VERBOSE=1 &&
       make test CTEST_OUTPUT_ON_FAILURE=1
   tags:
@@ -66,6 +66,7 @@ stages:
 BuildKokkos Cuda:
   variables:
     BACKENDS: "Cuda"
+    CMAKE_EXTRA_ARG: "-D CMAKE_CXX_COMPILER=${CI_PROJECT_DIR}/kokkos.install/bin/nvcc_wrapper"
   extends: .BuildKokkos
 
 Build Cuda:
