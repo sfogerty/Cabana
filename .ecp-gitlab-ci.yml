@@ -66,62 +66,62 @@ Build Cuda:
     - module load gcc/6.4.0
     - module load cuda
 
-#BuildKokkos Serial:
-#  variables:
-#    BACKENDS: "Serial"
-#  extends: .BuildKokkos
-#
-#Build Serial:
-#  variables:
-#    BACKENDS: "Serial"
-#  extends: .Build
-#  dependencies:
-#   - BuildKokkos Serial
-#
-#BuildKokkos OpenMP:
-#  variables:
-#    BACKENDS: "OpenMP"
-#  extends: .BuildKokkos
-#
-#Build OpenMP:
-#  variables:
-#    BACKENDS: "OpenMP"
-#  extends: .Build
-#  dependencies:
-#   - BuildKokkos OpenMP
-#
-#BuildKokkos Pthread:
-#  variables:
-#    BACKENDS: "Pthread"
-#  extends: .BuildKokkos
-#
-#Build Pthread:
-#  variables:
-#    BACKENDS: "Pthread"
-#  extends: .Build
-#  dependencies:
-#   - BuildKokkos Pthread
-#
-#BuildKokkos Serial Pthread:
-#  variables:
-#    BACKENDS: "Serial Pthread"
-#  extends: .BuildKokkos
-#
-#Build Serial Pthread:
-#  variables:
-#    BACKENDS: "Serial Pthread"
-#  extends: .Build
-#  dependencies:
-#   - BuildKokkos Serial Pthread
-#
-#BuildKokkos Serial OpenMP:
-#  variables:
-#    BACKENDS: "Serial OpenMP"
-#  extends: .BuildKokkos
-#
-#Build Serial OpenMP:
-#  variables:
-#    BACKENDS: "Serial OpenMP"
-#  extends: .Build
-#  dependencies:
-#   - BuildKokkos Serial OpenMP
+BuildKokkos Serial:
+  variables:
+    BACKENDS: "Serial"
+  extends: .BuildKokkos
+
+Build Serial:
+  variables:
+    BACKENDS: "Serial"
+  extends: .Build
+  dependencies:
+   - BuildKokkos Serial
+
+BuildKokkos OpenMP:
+  variables:
+    BACKENDS: "OpenMP"
+  extends: .BuildKokkos
+
+Build OpenMP:
+  variables:
+    BACKENDS: "OpenMP"
+  extends: .Build
+  dependencies:
+   - BuildKokkos OpenMP
+
+BuildKokkos Pthread:
+  variables:
+    BACKENDS: "Pthread"
+  extends: .BuildKokkos
+
+Build Pthread:
+  variables:
+    BACKENDS: "Pthread"
+  extends: .Build
+  dependencies:
+   - BuildKokkos Pthread
+
+BuildKokkos Serial Pthread:
+  variables:
+    BACKENDS: "Serial Pthread"
+  extends: .BuildKokkos
+
+Build Serial Pthread:
+  variables:
+    BACKENDS: "Serial Pthread"
+  extends: .Build
+  dependencies:
+   - BuildKokkos Serial Pthread
+
+BuildKokkos Serial OpenMP:
+  variables:
+    BACKENDS: "Serial OpenMP"
+  extends: .BuildKokkos
+
+Build Serial OpenMP:
+  variables:
+    BACKENDS: "Serial OpenMP"
+  extends: .Build
+  dependencies:
+   - BuildKokkos Serial OpenMP
