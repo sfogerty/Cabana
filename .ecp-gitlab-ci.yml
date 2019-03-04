@@ -8,14 +8,12 @@ stages:
   - buildKokkos
   - build
 #  - test
-#  ../generate_makefile.bash --prefix=${CI_PROJECT_DIR}/kokkos.install ${KOKKOS_OPTS[@]} &&
 
 .BuildKokkos:
   stage: buildKokkos
   script:
     - j="$(grep -c processor /proc/cpuinfo 2>/dev/null)" || j=0; ((j++))
     - for i in ${BACKENDS}; do KOKKOS_OPTS+=( --with-${i,,[A-Z]} ); done
-    - echo ${KOKKOS_OPTS[@]}
     - git clone --depth=1 https://github.com/kokkos/kokkos.git &&
       pushd kokkos &&
       mkdir build &&
@@ -31,8 +29,6 @@ stages:
     paths:
       - kokkos.install/
 
-      # cmake -DCMAKE_PREFIX_PATH=${CI_PROJECT_DIR}/kokkos.install -DCabana_ENABLE_TESTING=ON -DCabana_ENABLE_Serial=OFF -DCabana_ENABLE_EXAMPLES=OFF ${CMAKE_OPTS[@]} .. &&
-     # - for i in ${BACKENDS}; do CMAKE_OPTS+=( -DCabana_ENABLE_${i}=ON ); done
 .Build:
   stage: build
   script:
@@ -40,7 +36,6 @@ stages:
     - export TERM=xterm
     - module load cmake
     - for i in ${BACKENDS}; do CMAKE_OPTS+=( -DCabana_ENABLE_${i}=ON ); done
-    - echo ${CMAKE_OPTS[@]}
     - j="$(grep -c processor /proc/cpuinfo 2>/dev/null)" || j=0; ((j++))
     - mkdir build && cd build &&
       cmake -DCMAKE_PREFIX_PATH=${CI_PROJECT_DIR}/kokkos.install -DCabana_ENABLE_TESTING=ON -DCabana_ENABLE_Serial=OFF -DCabana_ENABLE_EXAMPLES=ON ${CMAKE_OPTS[@]} ${CMAKE_EXTRA_ARGS} .. &&
@@ -70,7 +65,6 @@ Build Cuda:
   before_script:
     - module load gcc/6.4.0
     - module load cuda
-
 
 #BuildKokkos Serial:
 #  variables:
