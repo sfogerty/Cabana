@@ -20,7 +20,7 @@ stages:
       pushd kokkos &&
       mkdir build &&
       pushd build &&
-      ../generate_makefile.bash --prefix=${CI_PROJECT_DIR}/kokkos.install ${KOKKOS_EXTRA_ARGS} &&
+      ../generate_makefile.bash --prefix=${CI_PROJECT_DIR}/kokkos.install ${KOKKOS_OPTS} ${KOKKOS_EXTRA_ARGS} &&
       make -j${j} &&
       make install &&
       popd &&
