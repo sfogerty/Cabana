@@ -32,8 +32,6 @@ stages:
 .Build:
   stage: build
   script:
-    - echo "TERM=$TERM"
-    - export TERM=xterm
     - module load cmake
     - for i in ${BACKENDS}; do CMAKE_OPTS+=( -DCabana_ENABLE_${i}=ON ); done
     - j="$(grep -c processor /proc/cpuinfo 2>/dev/null)" || j=0; ((j++))
@@ -154,6 +152,6 @@ BuildKokkos Serial Cuda OpenMP:
 Build Serial Cuda OpenMP:
   variables:
     BACKENDS: "Serial Cuda OpenMP"
-  extends: .Build
+  extends: .Build_Cuda
   dependencies:
    - BuildKokkos Serial Cuda OpenMP
