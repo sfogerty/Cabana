@@ -125,3 +125,27 @@ Build Serial OpenMP:
   extends: .Build
   dependencies:
    - BuildKokkos Serial OpenMP
+
+BuildKokkos Serial Cuda:
+  variables:
+    BACKENDS: "Serial Cuda"
+  extends: .BuildKokkos
+
+Build Serial Cuda:
+  variables:
+    BACKENDS: "Serial Cuda"
+  extends: .Build
+  dependencies:
+   - BuildKokkos Serial Cuda
+
+BuildKokkos Serial Cuda OpenMP:
+  variables:
+    BACKENDS: "Serial Cuda OpenMP"
+  extends: .BuildKokkos
+
+Build Serial Cuda OpenMP:
+  variables:
+    BACKENDS: "Serial Cuda OpenMP"
+  extends: .Build
+  dependencies:
+   - BuildKokkos Serial Cuda OpenMP
