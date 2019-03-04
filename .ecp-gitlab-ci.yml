@@ -131,6 +131,9 @@ BuildKokkos Serial Cuda:
     BACKENDS: "Serial Cuda"
     KOKKOS_EXTRA_ARGS: "--arch=Volta70,Power9 --with-cuda-options=enable_lambda"
   extends: .BuildKokkos
+  before_script:
+    - module load gcc/6.4.0
+    - module load cuda
 
 Build Serial Cuda:
   variables:
@@ -139,12 +142,18 @@ Build Serial Cuda:
   extends: .Build
   dependencies:
    - BuildKokkos Serial Cuda
+  before_script:
+    - module load gcc/6.4.0
+    - module load cuda
 
 BuildKokkos Serial Cuda OpenMP:
   variables:
     BACKENDS: "Serial Cuda OpenMP"
     KOKKOS_EXTRA_ARGS: "--arch=Volta70,Power9 --with-cuda-options=enable_lambda"
   extends: .BuildKokkos
+  before_script:
+    - module load gcc/6.4.0
+    - module load cuda
 
 Build Serial Cuda OpenMP:
   variables:
@@ -153,3 +162,6 @@ Build Serial Cuda OpenMP:
   extends: .Build
   dependencies:
    - BuildKokkos Serial Cuda OpenMP
+  before_script:
+    - module load gcc/6.4.0
+    - module load cuda
