@@ -40,11 +40,10 @@ stages:
     - export TERM=xterm
     - CI_PROJECT_DIR=${PWD}
     - module load cmake
+    - for i in ${BACKENDS}; do CMAKE_OPTS+=( -DCabana_ENABLE_${i}=ON ); done
     - j="$(grep -c processor /proc/cpuinfo 2>/dev/null)" || j=0; ((j++))
-    - rm -rf build && mkdir build && cd build &&
-      cmake .. -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_PREFIX_PATH=${CI_PROJECT_DIR}/kokkos.install -DKOKKOS_SETTINGS_DIR=${CI_PROJECT_DIR}/kokkos.install -DKOKKOS_LIBRARY=${CI_PROJECT_DIR}/kokkos.install/lib/libkokkos.a -DKOKKOS_INCLUDE_DIR=${CI_PROJECT_DIR}/kokkos.install/include -DCabana_ENABLE_Serial=ON -DCabana_ENABLE_OpenMP=ON -DCabana_ENABLE_Cuda=ON -DCabana_ENABLE_MPI=ON -DCabana_ENABLE_TESTING=ON -DCabana_ENABLE_EXAMPLES=ON ${CMAKE_OPTS[@]} ${CMAKE_EXTRA_ARG} &&
-      cat Cabana.pc &&
-      cat CMakeCache.txt &&
+    - mkdir build && cd build &&
+      cmake -DCMAKE_PREFIX_PATH=${CI_PROJECT_DIR}/kokkos.install -DCabana_ENABLE_TESTING=ON -DCabana_ENABLE_EXAMPLES=ON ${CMAKE_OPTS[@]} ${CMAKE_EXTRA_ARG} .. &&
       make -k -j${j} VERBOSE=1 &&
       make test CTEST_OUTPUT_ON_FAILURE=1
   tags:
