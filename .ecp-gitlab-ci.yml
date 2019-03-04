@@ -129,11 +129,13 @@ Build Serial OpenMP:
 BuildKokkos Serial Cuda:
   variables:
     BACKENDS: "Serial Cuda"
+    KOKKOS_EXTRA_ARGS: "--arch=Volta70,Power9 --with-cuda-options=enable_lambda"
   extends: .BuildKokkos
 
 Build Serial Cuda:
   variables:
     BACKENDS: "Serial Cuda"
+    CMAKE_EXTRA_ARGS: "-DCMAKE_CXX_COMPILER=${CI_PROJECT_DIR}/kokkos.install/bin/nvcc_wrapper"
   extends: .Build
   dependencies:
    - BuildKokkos Serial Cuda
@@ -141,11 +143,13 @@ Build Serial Cuda:
 BuildKokkos Serial Cuda OpenMP:
   variables:
     BACKENDS: "Serial Cuda OpenMP"
+    KOKKOS_EXTRA_ARGS: "--arch=Volta70,Power9 --with-cuda-options=enable_lambda"
   extends: .BuildKokkos
 
 Build Serial Cuda OpenMP:
   variables:
     BACKENDS: "Serial Cuda OpenMP"
+    CMAKE_EXTRA_ARGS: "-DCMAKE_CXX_COMPILER=${CI_PROJECT_DIR}/kokkos.install/bin/nvcc_wrapper"
   extends: .Build
   dependencies:
    - BuildKokkos Serial Cuda OpenMP
