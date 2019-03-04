@@ -14,15 +14,13 @@ stages:
   stage: buildKokkos
   script:
     - CI_PROJECT_DIR=${PWD}
-    - module load gcc/6.4.0
-    - module load cuda
     - j="$(grep -c processor /proc/cpuinfo 2>/dev/null)" || j=0; ((j++))
     - for i in ${BACKENDS}; do KOKKOS_OPTS+=( --with-${i,,[A-Z]} ); done
     - git clone --depth=1 https://github.com/kokkos/kokkos.git &&
       pushd kokkos &&
       mkdir build &&
       pushd build &&
-      ../generate_makefile.bash --prefix=${CI_PROJECT_DIR}/kokkos.install --with-serial --with-cuda --with-openmp --arch=Volta70,Power9 --compiler=${CI_PROJECT_DIR}/kokkos/bin/nvcc_wrapper --with-cuda-options=enable_lambda &&
+      ../generate_makefile.bash --prefix=${CI_PROJECT_DIR}/kokkos.install ${KOKKOS_EXTRA_ARGS} &&
       make -j${j} &&
       make install &&
       popd &&
@@ -42,9 +40,6 @@ stages:
     - export TERM=xterm
     - CI_PROJECT_DIR=${PWD}
     - module load cmake
-    - module load cuda
-    - module load gcc/6.4.0
-    - CMAKE_EXTRA_ARG="-DCMAKE_CXX_COMPILER=${CI_PROJECT_DIR}/kokkos.install/bin/nvcc_wrapper"
     - j="$(grep -c processor /proc/cpuinfo 2>/dev/null)" || j=0; ((j++))
     - rm -rf build && mkdir build && cd build &&
       cmake .. -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_PREFIX_PATH=${CI_PROJECT_DIR}/kokkos.install -DKOKKOS_SETTINGS_DIR=${CI_PROJECT_DIR}/kokkos.install -DKOKKOS_LIBRARY=${CI_PROJECT_DIR}/kokkos.install/lib/libkokkos.a -DKOKKOS_INCLUDE_DIR=${CI_PROJECT_DIR}/kokkos.install/include -DCabana_ENABLE_Serial=ON -DCabana_ENABLE_OpenMP=ON -DCabana_ENABLE_Cuda=ON -DCabana_ENABLE_MPI=ON -DCabana_ENABLE_TESTING=ON -DCabana_ENABLE_EXAMPLES=ON ${CMAKE_OPTS[@]} ${CMAKE_EXTRA_ARG} &&
@@ -60,15 +55,22 @@ stages:
 BuildKokkos Cuda:
   variables:
     BACKENDS: "Cuda"
-    CMAKE_EXTRA_ARG: "-DCMAKE_CXX_COMPILER=${CI_PROJECT_DIR}/kokkos.install/bin/nvcc_wrapper"
+    KOKKOS_EXTRA_ARGS: "--arch=Volta70,Power9 --with-cuda-options=enable_lambda"
   extends: .BuildKokkos
+  before_script:
+    - module load gcc/6.4.0
+    - module load cuda
 
 Build Cuda:
   variables:
     BACKENDS: "Cuda"
+    CMAKE_EXTRA_ARG: "-DCMAKE_CXX_COMPILER=${CI_PROJECT_DIR}/kokkos.install/bin/nvcc_wrapper"
   extends: .Build
   dependencies:
    - BuildKokkos Cuda
+  before_script:
+    - module load gcc/6.4.0
+    - module load cuda
 
 
 #BuildKokkos Serial:
