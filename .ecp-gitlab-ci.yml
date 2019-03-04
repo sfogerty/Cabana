@@ -46,25 +46,33 @@ stages:
   dependencies:
    - BuildKokkos
 
-BuildKokkos Cuda:
-  variables:
-    BACKENDS: "Cuda"
-    KOKKOS_EXTRA_ARGS: "--arch=Volta70,Power9 --with-cuda-options=enable_lambda"
+.BuildKokkos_Cuda:
   extends: .BuildKokkos
+  variables:
+    KOKKOS_EXTRA_ARGS: "--arch=Volta70,Power9 --with-cuda-options=enable_lambda"
   before_script:
     - module load gcc/6.4.0
     - module load cuda
 
-Build Cuda:
-  variables:
-    BACKENDS: "Cuda"
-    CMAKE_EXTRA_ARGS: "-DCMAKE_CXX_COMPILER=${CI_PROJECT_DIR}/kokkos.install/bin/nvcc_wrapper"
+.Build_Cuda:
   extends: .Build
-  dependencies:
-   - BuildKokkos Cuda
+  variables:
+    CMAKE_EXTRA_ARGS: "-DCMAKE_CXX_COMPILER=${CI_PROJECT_DIR}/kokkos.install/bin/nvcc_wrapper"
   before_script:
     - module load gcc/6.4.0
     - module load cuda
+
+BuildKokkos Cuda:
+  variables:
+    BACKENDS: "Cuda"
+  extends: .BuildKokkos_Cuda
+
+Build Cuda:
+  variables:
+    BACKENDS: "Cuda"
+  extends: .Build_Cuda
+  dependencies:
+   - BuildKokkos Cuda
 
 BuildKokkos Serial:
   variables:
@@ -129,39 +137,23 @@ Build Serial OpenMP:
 BuildKokkos Serial Cuda:
   variables:
     BACKENDS: "Serial Cuda"
-    KOKKOS_EXTRA_ARGS: "--arch=Volta70,Power9 --with-cuda-options=enable_lambda"
-  extends: .BuildKokkos
-  before_script:
-    - module load gcc/6.4.0
-    - module load cuda
+  extends: .BuildKokkos_Cuda
 
 Build Serial Cuda:
   variables:
     BACKENDS: "Serial Cuda"
-    CMAKE_EXTRA_ARGS: "-DCMAKE_CXX_COMPILER=${CI_PROJECT_DIR}/kokkos.install/bin/nvcc_wrapper"
-  extends: .Build
+  extends: .Build_Cuda
   dependencies:
    - BuildKokkos Serial Cuda
-  before_script:
-    - module load gcc/6.4.0
-    - module load cuda
 
 BuildKokkos Serial Cuda OpenMP:
   variables:
     BACKENDS: "Serial Cuda OpenMP"
-    KOKKOS_EXTRA_ARGS: "--arch=Volta70,Power9 --with-cuda-options=enable_lambda"
-  extends: .BuildKokkos
-  before_script:
-    - module load gcc/6.4.0
-    - module load cuda
+  extends: .BuildKokkos_Cuda
 
 Build Serial Cuda OpenMP:
   variables:
     BACKENDS: "Serial Cuda OpenMP"
-    CMAKE_EXTRA_ARGS: "-DCMAKE_CXX_COMPILER=${CI_PROJECT_DIR}/kokkos.install/bin/nvcc_wrapper"
   extends: .Build
   dependencies:
    - BuildKokkos Serial Cuda OpenMP
-  before_script:
-    - module load gcc/6.4.0
-    - module load cuda
