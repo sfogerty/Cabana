@@ -46,7 +46,7 @@ stages:
 .Test:
   stage: test
   script:
-    - cd  build
+    - cd build
     - make test CTEST_OUTPUT_ON_FAILURE=1
   tags:
     - batch
@@ -95,6 +95,7 @@ Test Serial:
   extends: .Test
   dependencies:
    - Build Serial
+   - BuildKokkos Serial
 
 BuildKokkos OpenMP:
   variables:
