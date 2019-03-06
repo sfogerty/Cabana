@@ -38,10 +38,6 @@ stages:
       cmake -DCMAKE_PREFIX_PATH=${CI_PROJECT_DIR}/kokkos.install -DCabana_ENABLE_TESTING=ON -DCabana_ENABLE_Serial=OFF -DCabana_ENABLE_EXAMPLES=ON ${CMAKE_OPTS[@]} ${CMAKE_EXTRA_ARGS} .. &&
       make -k -j${j} VERBOSE=1
     - wget https://raw.githubusercontent.com/slashbeast/pax-utils/master/lddtree.sh
-    - chmod +x lddtree.sh
-    - ldd core/unit_test/Version_test
-    - ./lddtree.sh core/unit_test/Version_test
-    - echo ${BACKENDS} > BACKENDS
   tags:
     - nobatch
   artifacts:
@@ -52,10 +48,6 @@ stages:
   stage: test
   script:
     - cd build
-    - cat BACKENDS
-    - ldd core/unit_test/Version_test
-    - ./lddtree.sh core/unit_test/Version_test
-    - core/unit_test/Version_test
     - make test CTEST_OUTPUT_ON_FAILURE=1
   tags:
     - batch
@@ -76,6 +68,12 @@ stages:
     - module load gcc/6.4.0
     - module load cuda
 
+.Test_Cuda:
+  extends: .Test
+  before_script:
+    - module load gcc/6.4.0
+    - module load cuda
+
 BuildKokkos Cuda:
   variables:
     BACKENDS: "Cuda"
@@ -86,6 +84,12 @@ Build Cuda:
     BACKENDS: "Cuda"
   extends: .Build_Cuda
   dependencies:
+   - BuildKokkos Cuda
+
+Test Cuda:
+  extends: .Test_Cuda
+  dependencies:
+   - Build Cuda
    - BuildKokkos Cuda
 
 BuildKokkos Serial:
@@ -118,6 +122,12 @@ Build OpenMP:
   dependencies:
    - BuildKokkos OpenMP
 
+Test OpenMP:
+  extends: .Test
+  dependencies:
+   - Build OpenMP
+   - BuildKokkos OpenMP
+
 BuildKokkos Pthread:
   variables:
     BACKENDS: "Pthread"
@@ -128,6 +138,12 @@ Build Pthread:
     BACKENDS: "Pthread"
   extends: .Build
   dependencies:
+   - BuildKokkos Pthread
+
+Test Pthread:
+  extends: .Test
+  dependencies:
+   - Build Pthread
    - BuildKokkos Pthread
 
 BuildKokkos Serial Pthread:
@@ -142,6 +158,12 @@ Build Serial Pthread:
   dependencies:
    - BuildKokkos Serial Pthread
 
+Test Serial Pthread:
+  extends: .Test
+  dependencies:
+   - Build Serial Pthread
+   - BuildKokkos Serial Pthread
+
 BuildKokkos Serial OpenMP:
   variables:
     BACKENDS: "Serial OpenMP"
@@ -152,6 +174,12 @@ Build Serial OpenMP:
     BACKENDS: "Serial OpenMP"
   extends: .Build
   dependencies:
+   - BuildKokkos Serial OpenMP
+
+Test Serial OpenMP:
+  extends: .Test
+  dependencies:
+   - Build Serial OpenMP
    - BuildKokkos Serial OpenMP
 
 BuildKokkos Serial Cuda:
@@ -166,6 +194,12 @@ Build Serial Cuda:
   dependencies:
    - BuildKokkos Serial Cuda
 
+Test Serial Cuda:
+  extends: .Test_Cuda
+  dependencies:
+   - Build Serial Cuda
+   - BuildKokkos Serial Cuda
+
 BuildKokkos Serial Cuda OpenMP:
   variables:
     BACKENDS: "Serial Cuda OpenMP"
@@ -177,3 +211,10 @@ Build Serial Cuda OpenMP:
   extends: .Build_Cuda
   dependencies:
    - BuildKokkos Serial Cuda OpenMP
+
+Test Serial Cuda OpenMP:
+  extends: .Test_Cuda
+  dependencies:
+   - Build Serial Cuda OpenMP
+   - BuildKokkos Serial Cuda OpenMP
+
