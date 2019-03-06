@@ -37,7 +37,10 @@ stages:
     - mkdir build && cd build &&
       cmake -DCMAKE_PREFIX_PATH=${CI_PROJECT_DIR}/kokkos.install -DCabana_ENABLE_TESTING=ON -DCabana_ENABLE_Serial=OFF -DCabana_ENABLE_EXAMPLES=ON ${CMAKE_OPTS[@]} ${CMAKE_EXTRA_ARGS} .. &&
       make -k -j${j} VERBOSE=1
+    - wget https://raw.githubusercontent.com/slashbeast/pax-utils/master/lddtree.sh
+    - chmod +x lddtree.sh
     - ldd core/unit_test/Version_test
+    - ./lddtree.sh core/unit_test/Version_test
     - echo ${BACKENDS} > BACKENDS
   tags:
     - nobatch
@@ -51,6 +54,8 @@ stages:
     - cd build
     - cat BACKENDS
     - ldd core/unit_test/Version_test
+    - ./lddtree.sh core/unit_test/Version_test
+    - core/unit_test/Version_test
     - make test CTEST_OUTPUT_ON_FAILURE=1
   tags:
     - batch
