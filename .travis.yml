@@ -129,6 +129,7 @@ after_success:
 branches:
   only:
   - master
+  - merge_cajita
 
 cache:
   - ccache
