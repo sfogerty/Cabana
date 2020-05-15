@@ -53,8 +53,6 @@ addons:
     packages:
       - doxygen
       - libhwloc-dev
-      - openmpi-bin
-      - libopenmpi-dev
       - gfortran
       - libgsl0-dev
       - libfftw3-dev
