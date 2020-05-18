@@ -59,8 +59,10 @@ addons:
       - python-pip
       - g++-7
       - gfortran-7
-      - mpich
-      - libmpich-dev
+      - openmpi-bin
+      - libopenmpi-dev
+      - libopenmpi2
+      - openmpi-common
 
 script:
   - export CXXFLAGS="-Wall -Wextra -pedantic ${WERROR:+-Werror}"
