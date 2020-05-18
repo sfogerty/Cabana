@@ -60,6 +60,7 @@ addons:
       - g++-7
       - gfortran-7
       - libopenmpi-dev
+      - openmpi-common
       - openmpi-bin
 
 script:
