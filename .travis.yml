@@ -31,7 +31,7 @@ before_script:
     tar xfz openmpi-2.1.1.tar.gz &&
     rm openmpi-2.1.1.tar.gz &&
     pushd openmpi-2.1.1 &&
-    ./configure --prefix=`pwd`/../openmpi &&
+    ./configure --prefix=$HOME/openmpi &&
     make -j4 &&
     make install &&
     popd
@@ -44,7 +44,7 @@ before_script:
     pushd kokkos &&
     mkdir build &&
     pushd build &&
-    cmake -DCMAKE_INSTALL_PREFIX=$HOME/kokkos ${KOKKOS_OPTS[@]} .. &&
+    cmake -DCMAKE_INSTALL_PREFIX="$HOME/kokkos;$HOME/openmpi" ${KOKKOS_OPTS[@]} .. &&
     make -j2 &&
     make install &&
     popd &&
