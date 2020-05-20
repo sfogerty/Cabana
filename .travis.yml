@@ -36,8 +36,8 @@ before_script:
     tar xfz openmpi-2.1.1.tar.gz &&
     rm openmpi-2.1.1.tar.gz &&
     pushd openmpi-2.1.1 &&
-    ./configure &&
-    make -j2 &&
+    ./configure --prefix=`pwd`/../openmpi &&
+    make -j4 &&
     make install &&
     popd
   - git clone --depth=1 --branch 3.1.00 https://github.com/kokkos/kokkos.git &&
