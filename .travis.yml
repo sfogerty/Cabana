@@ -32,7 +32,7 @@ before_script:
   - for i in ${BACKENDS}; do KOKKOS_OPTS+=( -DKokkos_ENABLE_${i^^}=ON ); done
     # LD_LIBRARY_PATH workaround for libomp: https://github.com/travis-ci/travis-ci/issues/8613
   - if [[ ${CC} = clang ]]; then export LD_LIBRARY_PATH=/usr/local/clang/lib:$LD_LIBRARY_PATH; fi
-  - wget https://download.open-mpi.org/release/open-mpi/v2.1/openmpi-2.1.1.tar.gz
+  - wget https://download.open-mpi.org/release/open-mpi/v2.1/openmpi-2.1.1.tar.gz &&
     tar xfz openmpi-2.1.1.tar.gz &&
     rm openmpi-2.1.1.tar.gz &&
     pushd openmpi-2.1.1 &&
