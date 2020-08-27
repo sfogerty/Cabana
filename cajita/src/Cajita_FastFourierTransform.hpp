@@ -28,126 +28,7 @@ namespace Cajita
 namespace Experimental
 {
 //---------------------------------------------------------------------------//
-template <class MemorySpace>
-struct HeffteMemoryTraits;
-
-#ifdef KOKKOS_ENABLE_CUDA
-template <>
-struct HeffteMemoryTraits<Kokkos::CudaSpace>
-{
-    static constexpr heffte_memory_type_t value = HEFFTE_MEM_GPU;
-};
-
-template <>
-struct HeffteMemoryTraits<Kokkos::CudaUVMSpace>
-{
-    static constexpr heffte_memory_type_t value = HEFFTE_MEM_MANAGED;
-};
-#endif
-
-template <>
-struct HeffteMemoryTraits<Kokkos::HostSpace>
-{
-    static constexpr heffte_memory_type_t value = HEFFTE_MEM_CPU;
-};
-
-//---------------------------------------------------------------------------//
-//! The following class is no longer needed, heFFTe provides an options class to setup parameters
-// class FastFourierTransformParams
-// {
-//   public:
-//     /*!
-//       \brief Default constructor to disable aggregate initialization.
-//     */
-//     FastFourierTransformParams()
-//         : collective( 2 )
-//         , exchange( 0 )
-//         , packflag( 2 )
-//         , scaled( 1 )
-//     {
-//     }
-
-//     /*!
-//       \brief Set the collective type.
-//       \param type Collective type.
-
-//       0: point-to-point
-//       1: all-to-all
-//       2: combination
-
-//       If this function is not used to set the type then 2 is used as the
-//       default.
-//     */
-//     FastFourierTransformParams &setCollectiveType( const int type )
-//     {
-//         collective = type;
-//         return *this;
-//     }
-
-//     /*!
-//       \brief Set the exchange type.
-//       \param type Exchange type.
-
-//       0: reshape direct from pencil to pencil
-//       1: two reshapes from pencil to brick, then brick to pencil
-
-//       If this function is not used to set the type then 0 is used as the
-//       default.
-//     */
-//     FastFourierTransformParams &setExchangeType( const int type )
-//     {
-//         exchange = type;
-//         return *this;
-//     }
-
-//     /*!
-//       \brief Set the pack type.
-//       \param type Pack type.
-
-//       0: array
-//       1: pointer
-//       2: memcpy
-
-//       If this function is not used to set the type then 2 is used as the
-//       default.
-//     */
-//     FastFourierTransformParams &setPackType( const int type )
-//     {
-//         packflag = type;
-//         return *this;
-//     }
-
-//     /*!
-//       \brief Set the scaling type.
-//       \param type Scaling type.
-
-//       0: Not scaling after forward
-//       1: Scaling after forward
-
-//       If this function is not used to set the type then 1 is used as the
-//       default.
-//     */
-//     FastFourierTransformParams &setScalingType( const int type )
-//     {
-//         scaled = type;
-//         return *this;
-//     }
-
-//     // Collective communication type.
-//     int collective;
-
-//     // Parallel decomposition exchange type.
-//     int exchange;
-
-//     // Buffer packing type.
-//     int packflag;
-
-//     // Forward scaling option.
-//     int scaled;
-// };
-
-//---------------------------------------------------------------------------//
-template <class Backend, class Scalar, class EntityType, class MeshType, class DeviceType>
+template <class BackendType, class Scalar, class EntityType, class MeshType, class DeviceType>
 class FastFourierTransform
 {
   public:
@@ -164,26 +45,11 @@ class FastFourierTransform
       \param params Parameters for the 3D FFT.
     */
     FastFourierTransform( const ArrayLayout<EntityType, MeshType> &layout,
-                        //   const FastFourierTransformParams &params )
                           const heffte::plan_options &params )
-        // : _fft( layout.localGrid()->globalGrid().comm() )
     {
         if ( 1 != layout.dofsPerEntity() )
             throw std::logic_error(
                 "Only 1 complex value per entity allowed in FFT" );
-
-        // Set the memory type. For now we will just do FFTs on the host until
-        // we find the HEFFTE GPU memory bug.
-        // _fft.mem_type = HEFFTE_MEM_CPU;  // * Memory automatically defined from backend type
-
-        // Let the fft allocate its own send/receive buffers.
-        // _fft.memoryflag = 1;  // * User have now a choice to provide their workspace, that is done when defining the fft object, see heffte/benchmarks/speed3d.h
-
-        // Set parameters. // ! Old way to define parameters, now they directly come from "heffte::plan_options params"
-        // _fft.collective = params.collective;
-        // _fft.exchange = params.exchange;
-        // _fft.packflag = params.packflag;
-        // _fft.scaled = params.scaled;
 
         // Get the global grid.
         const auto &global_grid = layout.localGrid()->globalGrid();
@@ -216,16 +82,9 @@ class FastFourierTransform
             global_low[Dim::K] + local_num_entity[Dim::K] - 1};
 
         // Setup the fft.
-        //! int permute = 0;
-        //! int fftsize, sendsize, recvsize; 
         int fftsize;
 
-        //! Old heFFTe plan creation
-        // _fft.setup( global_num_entity.data(), global_low.data(),
-        //             global_high.data(), global_low.data(), global_high.data(),
-        //             permute, fftsize, sendsize, recvsize );
-
-        heffte::fft3d<Backend> fft( heffte::box3d( global_low.data(), global_high.data() ) ,
+        heffte::fft3d<BackendType> fft( heffte::box3d( global_low.data(), global_high.data() ) ,
                                         heffte::box3d( global_low.data(), global_high.data() ) ,
                                         layout.localGrid()->globalGrid().comm(), params );
 
@@ -318,19 +177,19 @@ class FastFourierTransform
         auto fft_work_mirror = Kokkos::create_mirror_view_and_copy(
             Kokkos::HostSpace(), _fft_work );
 
-        // Perform FFT. //! Old heFFTe compute kernel
-        // _fft.compute( fft_work_mirror.data(), fft_work_mirror.data(), flag );
-
         //* New heFFTe version
         //* Define scaling:
         auto scale_flag = heffte::scale::full; //* can also be heffte::scale::none or heffte::scale::symmetric
 
-        if (flag==1):
+        if (flag==1) {
             _fft.forward( fft_work_mirror.data(), fft_work_mirror.data(), scale_flag );
-        else if(flag==-1):
+        }
+        else if(flag==-1) {
             _fft.backward( fft_work_mirror.data(), fft_work_mirror.data() );
-        else
+        }
+        else {
             throw std::logic_error("Only 1:forward and -1:backward are allowed as compute flag");
+        }
 
         // Copy back to the work array. Once we fix the HEFFTE GPU memory bug //! There should not be any bug anymore.
         // we wont need this.
@@ -351,22 +210,20 @@ class FastFourierTransform
     }
 
   private:
-    // HEFFTE::FFT3d<Scalar> _fft; //! No need to define data type in new heFFTe version
-    heffte::FFT3d<Backend> _fft; //* FFT class is now templated by the backend type (e.g. FFTW, MKL, CUFFT)
+    heffte::fft3d<BackendType> _fft; //* FFT class is now templated by the backend type (e.g. FFTW, MKL, CUFFT)
     Kokkos::View<Scalar *, DeviceType> _fft_work;
 };
 
 //---------------------------------------------------------------------------//
 // FFT creation
 //---------------------------------------------------------------------------//
-template <class Scalar, class DeviceType, class EntityType, class MeshType>
-std::shared_ptr<FastFourierTransform<Backend, Scalar, EntityType, MeshType, DeviceType>>
+template <class BackendType, class Scalar, class DeviceType, class EntityType, class MeshType>
+std::shared_ptr<FastFourierTransform<BackendType, Scalar, EntityType, MeshType, DeviceType>>
 createFastFourierTransform( const ArrayLayout<EntityType, MeshType> &layout,
-                            // const FastFourierTransformParams &params )
                             const heffte::plan_options &params )
 {
     return std::make_shared<
-        FastFourierTransform<Backend, Scalar, EntityType, MeshType, DeviceType>>(
+        FastFourierTransform<BackendType, Scalar, EntityType, MeshType, DeviceType>>(
         layout, params );
 }
 
