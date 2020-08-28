@@ -50,7 +50,7 @@ endif()
 
 # standard dependency macro
 macro(Cabana_add_dependency)
-  cmake_parse_arguments(CABANA_DEPENDENCY "" "PACKAGE VERSION" "" ${ARGN})
+  cmake_parse_arguments(CABANA_DEPENDENCY "" "PACKAGE;VERSION" "" ${ARGN})
   find_package( ${CABANA_DEPENDENCY_PACKAGE} ${CABANA_DEPENDENCY_VERSION} QUIET )
   string(TOUPPER "${CABANA_DEPENDENCY_PACKAGE}" CABANA_DEPENDENCY_OPTION )
   option(
@@ -80,7 +80,7 @@ if(HYPRE_FOUND)
 endif()
 
 # find heffte
-Cabana_add_dependency( PACKAGE Heffte VERSION 1.0-rc1)
+Cabana_add_dependency( PACKAGE Heffte VERSION 1.0)
 
 #------------------------------------------------------------------------------#
 # Tests and Documentation
