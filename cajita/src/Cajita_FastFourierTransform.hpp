@@ -28,7 +28,8 @@ namespace Cajita
 namespace Experimental
 {
 //---------------------------------------------------------------------------//
-template <class BackendType, class Scalar, class EntityType, class MeshType, class DeviceType>
+template <class BackendType, class Scalar, class EntityType, class MeshType,
+          class DeviceType>
 class FastFourierTransform
 {
   public:
@@ -84,11 +85,12 @@ class FastFourierTransform
         // Setup the fft.
         int fftsize;
 
-        heffte::fft3d<BackendType> fft( heffte::box3d( global_low.data(), global_high.data() ) ,
-                                        heffte::box3d( global_low.data(), global_high.data() ) ,
-                                        layout.localGrid()->globalGrid().comm(), params );
+        heffte::fft3d<BackendType> fft(
+            heffte::box3d( global_low.data(), global_high.data() ),
+            heffte::box3d( global_low.data(), global_high.data() ),
+            layout.localGrid()->globalGrid().comm(), params );
 
-        fftsize = std::max(fft.size_outbox(), fft.size_inbox());
+        fftsize = std::max( fft.size_outbox(), fft.size_inbox() );
 
         // Check the size.
         if ( fftsize < (int)entity_space.size() )
@@ -98,12 +100,12 @@ class FastFourierTransform
         // Allocate the work array.
         _fft_work = Kokkos::View<Scalar *, DeviceType>(
             Kokkos::ViewAllocateWithoutInitializing( "fft_work" ),
-            2 * fftsize ); 
-            // Note: before it was necessary 2*fftsize since complex data was defined 
-            // via a real arrays ( hence 2x the size of complex input ).
-            // heFFTe v1.0 supports casting to complex std::complex, and if you define your data as 
-            // complex, then just need to allocate fftsize.
-            // See heffte/benchmarks/speed3d.h for an example.
+            2 * fftsize );
+        // Note: before it was necessary 2*fftsize since complex data was
+        // defined via a real arrays ( hence 2x the size of complex input ).
+        // heFFTe v1.0 supports casting to complex std::complex, and if you
+        // define your data as complex, then just need to allocate fftsize. See
+        // heffte/benchmarks/speed3d.h for an example.
     }
 
     /*!
@@ -179,20 +181,27 @@ class FastFourierTransform
 
         //* New heFFTe version
         //* Define scaling:
-        auto scale_flag = heffte::scale::full; //* can also be heffte::scale::none or heffte::scale::symmetric
+        auto scale_flag =
+            heffte::scale::full; //* can also be heffte::scale::none or
+                                 //heffte::scale::symmetric
 
-        if (flag==1) {
-            _fft.forward( fft_work_mirror.data(), fft_work_mirror.data(), scale_flag );
+        if ( flag == 1 )
+        {
+            _fft.forward( fft_work_mirror.data(), fft_work_mirror.data(),
+                          scale_flag );
         }
-        else if(flag==-1) {
+        else if ( flag == -1 )
+        {
             _fft.backward( fft_work_mirror.data(), fft_work_mirror.data() );
         }
-        else {
-            throw std::logic_error("Only 1:forward and -1:backward are allowed as compute flag");
+        else
+        {
+            throw std::logic_error(
+                "Only 1:forward and -1:backward are allowed as compute flag" );
         }
 
-        // Copy back to the work array. Once we fix the HEFFTE GPU memory bug //! There should not be any bug anymore.
-        // we wont need this.
+        // Copy back to the work array. Once we fix the HEFFTE GPU memory bug
+        // //! There should not be any bug anymore. we wont need this.
         Kokkos::deep_copy( _fft_work, fft_work_mirror );
 
         // Copy back to output array.
@@ -210,21 +219,24 @@ class FastFourierTransform
     }
 
   private:
-    heffte::fft3d<BackendType> _fft; //* FFT class is now templated by the backend type (e.g. FFTW, MKL, CUFFT)
+    heffte::fft3d<BackendType> _fft; //* FFT class is now templated by the
+                                     //backend type (e.g. FFTW, MKL, CUFFT)
     Kokkos::View<Scalar *, DeviceType> _fft_work;
 };
 
 //---------------------------------------------------------------------------//
 // FFT creation
 //---------------------------------------------------------------------------//
-template <class BackendType, class Scalar, class DeviceType, class EntityType, class MeshType>
-std::shared_ptr<FastFourierTransform<BackendType, Scalar, EntityType, MeshType, DeviceType>>
+template <class BackendType, class Scalar, class DeviceType, class EntityType,
+          class MeshType>
+std::shared_ptr<
+    FastFourierTransform<BackendType, Scalar, EntityType, MeshType, DeviceType>>
 createFastFourierTransform( const ArrayLayout<EntityType, MeshType> &layout,
                             const heffte::plan_options &params )
 {
-    return std::make_shared<
-        FastFourierTransform<BackendType, Scalar, EntityType, MeshType, DeviceType>>(
-        layout, params );
+    return std::make_shared<FastFourierTransform<
+        BackendType, Scalar, EntityType, MeshType, DeviceType>>( layout,
+                                                                 params );
 }
 
 //---------------------------------------------------------------------------//
