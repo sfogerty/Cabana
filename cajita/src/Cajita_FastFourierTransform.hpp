@@ -183,7 +183,7 @@ class FastFourierTransform
         //* Define scaling:
         auto scale_flag =
             heffte::scale::full; //* can also be heffte::scale::none or
-                                 //heffte::scale::symmetric
+                                 // heffte::scale::symmetric
 
         if ( flag == 1 )
         {
@@ -220,7 +220,7 @@ class FastFourierTransform
 
   private:
     heffte::fft3d<BackendType> _fft; //* FFT class is now templated by the
-                                     //backend type (e.g. FFTW, MKL, CUFFT)
+                                     // backend type (e.g. FFTW, MKL, CUFFT)
     Kokkos::View<Scalar *, DeviceType> _fft_work;
 };
 
