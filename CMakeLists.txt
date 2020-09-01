@@ -83,7 +83,7 @@ endif()
 #Cabana_add_dependency( PACKAGE Heffte VERSION 1.0.0)
 #For now, avoid CMake bug by using find_package()
 find_package(Heffte 1.0.0)
-
+set(Cabana_ENABLE_HEFFTE ${Heffte_FOUND})
 #------------------------------------------------------------------------------#
 # Tests and Documentation
 #------------------------------------------------------------------------------#
