@@ -55,13 +55,6 @@ class FastFourierTransform
         // Get the global grid.
         const auto &global_grid = layout.localGrid()->globalGrid();
 
-        // Get the global dimensions of the problem. K indices move the
-        // fastest because we fix the work array to be layout right.
-        std::array<int, 3> global_num_entity = {
-            global_grid.globalNumEntity( EntityType(), Dim::K ),
-            global_grid.globalNumEntity( EntityType(), Dim::J ),
-            global_grid.globalNumEntity( EntityType(), Dim::I )};
-
         // Get the local dimensions of the problem.
         auto entity_space =
             layout.localGrid()->indexSpace( Own(), EntityType(), Local() );
