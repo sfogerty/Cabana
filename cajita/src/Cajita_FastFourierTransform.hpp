@@ -88,9 +88,7 @@ class FastFourierTransform
         _fft = std::make_shared<heffte::fft3d<BackendType>>(
             heffte::box3d( global_low, global_high ),
             heffte::box3d( global_low, global_high ),
-            layout.localGrid()->globalGrid().comm(), params
-        );
-
+            layout.localGrid()->globalGrid().comm(), params );
 
         fftsize = std::max( _fft->size_outbox(), _fft->size_inbox() );
 
@@ -101,8 +99,7 @@ class FastFourierTransform
 
         // Allocate the work array.
         _fft_work = Kokkos::View<std::complex<Scalar> *, DeviceType>(
-            Kokkos::ViewAllocateWithoutInitializing( "fft_work" ),
-            fftsize );
+            Kokkos::ViewAllocateWithoutInitializing( "fft_work" ), fftsize );
         // Note: before it was necessary 2*fftsize since complex data was
         // defined via a real arrays ( hence 2x the size of complex input ).
         // heFFTe v1.0 supports casting to complex std::complex, and if you
@@ -158,9 +155,10 @@ class FastFourierTransform
         // Create a subview of the work array to write the local data into.
         auto own_space =
             x.layout()->localGrid()->indexSpace( Own(), EntityType(), Local() );
-        //auto work_view_space = appendDimension( own_space, 2 );
-        auto work_view = createView<std::complex<Scalar>, Kokkos::LayoutRight, DeviceType>(
-            own_space, _fft_work.data() );
+        // auto work_view_space = appendDimension( own_space, 2 );
+        auto work_view =
+            createView<std::complex<Scalar>, Kokkos::LayoutRight, DeviceType>(
+                own_space, _fft_work.data() );
 
         // Copy to the work array. The work array only contains owned data.
         auto x_view = x.view();
@@ -184,11 +182,9 @@ class FastFourierTransform
             heffte::scale::full; //* can also be heffte::scale::none or
                                  // heffte::scale::symmetric
 
-
         if ( flag == 1 )
         {
-            _fft->forward( _fft_work.data(), _fft_work.data(),
-                          scale_flag );
+            _fft->forward( _fft_work.data(), _fft_work.data(), scale_flag );
         }
         else if ( flag == -1 )
         {
