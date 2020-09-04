@@ -85,12 +85,14 @@ class FastFourierTransform
         // Setup the fft.
         int fftsize;
 
-        heffte::fft3d<BackendType> fft(
-            heffte::box3d( global_low.data(), global_high.data() ),
-            heffte::box3d( global_low.data(), global_high.data() ),
-            layout.localGrid()->globalGrid().comm(), params );
+        _fft = std::make_shared<heffte::fft3d<BackendType>>(
+            heffte::box3d( global_low, global_high ),
+            heffte::box3d( global_low, global_high ),
+            layout.localGrid()->globalGrid().comm(), params
+        );
 
-        fftsize = std::max( fft.size_outbox(), fft.size_inbox() );
+
+        fftsize = std::max( _fft->size_outbox(), _fft->size_inbox() );
 
         // Check the size.
         if ( fftsize < (int)entity_space.size() )
@@ -98,9 +100,9 @@ class FastFourierTransform
                                     "than local grid size" );
 
         // Allocate the work array.
-        _fft_work = Kokkos::View<Scalar *, DeviceType>(
+        _fft_work = Kokkos::View<std::complex<Scalar> *, DeviceType>(
             Kokkos::ViewAllocateWithoutInitializing( "fft_work" ),
-            2 * fftsize );
+            fftsize );
         // Note: before it was necessary 2*fftsize since complex data was
         // defined via a real arrays ( hence 2x the size of complex input ).
         // heFFTe v1.0 supports casting to complex std::complex, and if you
@@ -156,9 +158,9 @@ class FastFourierTransform
         // Create a subview of the work array to write the local data into.
         auto own_space =
             x.layout()->localGrid()->indexSpace( Own(), EntityType(), Local() );
-        auto work_view_space = appendDimension( own_space, 2 );
-        auto work_view = createView<Scalar, Kokkos::LayoutRight, DeviceType>(
-            work_view_space, _fft_work.data() );
+        //auto work_view_space = appendDimension( own_space, 2 );
+        auto work_view = createView<std::complex<Scalar>, Kokkos::LayoutRight, DeviceType>(
+            own_space, _fft_work.data() );
 
         // Copy to the work array. The work array only contains owned data.
         auto x_view = x.view();
@@ -170,14 +172,11 @@ class FastFourierTransform
                 auto iw = i - own_space.min( Dim::I );
                 auto jw = j - own_space.min( Dim::J );
                 auto kw = k - own_space.min( Dim::K );
-                work_view( iw, jw, kw, 0 ) = x_view( i, j, k, 0 ).real();
-                work_view( iw, jw, kw, 1 ) = x_view( i, j, k, 0 ).imag();
+                auto realpart = x_view( i, j, k, 0 ).real();
+                auto imagpart = x_view( i, j, k, 0 ).imag();
+                work_view( iw, jw, kw ).real( realpart );
+                work_view( iw, jw, kw ).imag( imagpart );
             } );
-
-        // Copy to the host. Once we fix the HEFFTE GPU memory bug we wont
-        // need this.
-        auto fft_work_mirror = Kokkos::create_mirror_view_and_copy(
-            Kokkos::HostSpace(), _fft_work );
 
         //* New heFFTe version
         //* Define scaling:
@@ -185,24 +184,21 @@ class FastFourierTransform
             heffte::scale::full; //* can also be heffte::scale::none or
                                  // heffte::scale::symmetric
 
+
         if ( flag == 1 )
         {
-            _fft.forward( fft_work_mirror.data(), fft_work_mirror.data(),
+            _fft->forward( _fft_work.data(), _fft_work.data(),
                           scale_flag );
         }
         else if ( flag == -1 )
         {
-            _fft.backward( fft_work_mirror.data(), fft_work_mirror.data() );
+            _fft->backward( _fft_work.data(), _fft_work.data() );
         }
         else
         {
             throw std::logic_error(
                 "Only 1:forward and -1:backward are allowed as compute flag" );
         }
-
-        // Copy back to the work array. Once we fix the HEFFTE GPU memory bug
-        // //! There should not be any bug anymore. we wont need this.
-        Kokkos::deep_copy( _fft_work, fft_work_mirror );
 
         // Copy back to output array.
         Kokkos::parallel_for(
@@ -213,15 +209,14 @@ class FastFourierTransform
                 auto iw = i - own_space.min( Dim::I );
                 auto jw = j - own_space.min( Dim::J );
                 auto kw = k - own_space.min( Dim::K );
-                x_view( i, j, k, 0 ).real() = work_view( iw, jw, kw, 0 );
-                x_view( i, j, k, 0 ).imag() = work_view( iw, jw, kw, 1 );
+                x_view( i, j, k, 0 ).real() = work_view( iw, jw, kw ).real();
+                x_view( i, j, k, 0 ).imag() = work_view( iw, jw, kw ).imag();
             } );
     }
 
   private:
-    heffte::fft3d<BackendType> _fft; //* FFT class is now templated by the
-                                     // backend type (e.g. FFTW, MKL, CUFFT)
-    Kokkos::View<Scalar *, DeviceType> _fft_work;
+    std::shared_ptr<heffte::fft3d<BackendType>> _fft;
+    Kokkos::View<std::complex<Scalar> *, DeviceType> _fft_work;
 };
 
 //---------------------------------------------------------------------------//
