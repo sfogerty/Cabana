@@ -111,7 +111,7 @@ void forwardReverseTest()
 
     //* 3. Data handling
     params.set_reorder( true ); //* Use data in contiguous memory (requires
-                                //tensor transposition)
+                                // tensor transposition)
     // params.set_reorder(false); //* Use strided data (does not require tensor
     // transposition)
 
