@@ -28,8 +28,34 @@ namespace Cajita
 namespace Experimental
 {
 //---------------------------------------------------------------------------//
-template <class BackendType, class Scalar, class EntityType, class MeshType,
-          class DeviceType>
+
+// Automatically set the heFFTe backend
+// TODO: let the user set/change the backend
+#ifdef KOKKOS_ENABLE_CUDA
+using backend = heffte::backend::cufft;
+#else
+using backend = heffte::backend::fftw;
+#endif
+typedef heffte::fft3d<backend> FFT_type;
+typedef heffte::box3d box_type;
+typedef heffte::plan_options FastFourierTransformOptions;
+typedef heffte::scale FFT_ScaleType;
+FFT_ScaleType FFT_ScaleFull = heffte::scale::full;
+FFT_ScaleType FFT_ScaleNone = heffte::scale::none;
+FFT_ScaleType FFT_ScaleSymmetric = heffte::scale::symmetric;
+
+// Some options are still heFFTe-specific
+class FastFourierTransformParams
+{
+  public:
+    // Use heFFTe default options unless user sets other values
+    FastFourierTransformOptions options = heffte::default_options<backend>();
+    void set_alltoall( bool value ) { options.use_alltoall = value; }
+    void set_pencils( bool value ) { options.use_pencils = value; }
+    void set_reorder( bool value ) { options.use_reorder = value; }
+};
+
+template <class Scalar, class EntityType, class MeshType, class DeviceType>
 class FastFourierTransform
 {
   public:
@@ -46,7 +72,7 @@ class FastFourierTransform
       \param params Parameters for the 3D FFT.
     */
     FastFourierTransform( const ArrayLayout<EntityType, MeshType> &layout,
-                          const heffte::plan_options &params )
+                          const FastFourierTransformParams &params )
     {
         if ( 1 != layout.dofsPerEntity() )
             throw std::logic_error(
@@ -78,16 +104,20 @@ class FastFourierTransform
         // Setup the fft.
         int fftsize;
 
-        _fft = std::make_shared<heffte::fft3d<BackendType>>(
-            heffte::box3d( global_low, global_high ),
-            heffte::box3d( global_low, global_high ),
-            layout.localGrid()->globalGrid().comm(), params );
+        box_type inbox = {global_low, global_high};
+        box_type outbox = {global_low, global_high};
+
+        // Set FFT options from given parameters
+
+        _fft = std::make_shared<FFT_type>(
+            inbox, outbox, layout.localGrid()->globalGrid().comm(),
+            params.options );
 
         fftsize = std::max( _fft->size_outbox(), _fft->size_inbox() );
 
         // Check the size.
         if ( fftsize < (int)entity_space.size() )
-            throw std::logic_error( "heFFTe expected allocation size smaller "
+            throw std::logic_error( "Expected allocation size smaller "
                                     "than local grid size" );
 
         // Allocate the work array.
@@ -105,9 +135,9 @@ class FastFourierTransform
       \param in The array on which to perform the forward transform.
     */
     template <class Array_t>
-    void forward( const Array_t &x )
+    void forward( const Array_t &x, const FFT_ScaleType scale = FFT_ScaleNone )
     {
-        compute( x, 1 );
+        compute( x, 1, scale );
     }
 
     /*!
@@ -115,14 +145,14 @@ class FastFourierTransform
      \param out The array on which to perform the reverse transform.
     */
     template <class Array_t>
-    void reverse( const Array_t &x )
+    void reverse( const Array_t &x, const FFT_ScaleType scale = FFT_ScaleNone )
     {
-        compute( x, -1 );
+        compute( x, -1, scale );
     }
 
   public:
     template <class Array_t>
-    void compute( const Array_t &x, const int flag )
+    void compute( const Array_t &x, const int flag, const FFT_ScaleType scale )
     {
         static_assert( is_array<Array_t>::value, "Must use an array" );
         static_assert(
@@ -169,19 +199,13 @@ class FastFourierTransform
                 work_view( iw, jw, kw ).imag( imagpart );
             } );
 
-        //* New heFFTe version
-        //* Define scaling:
-        auto scale_flag =
-            heffte::scale::full; //* can also be heffte::scale::none or
-                                 // heffte::scale::symmetric
-
         if ( flag == 1 )
         {
-            _fft->forward( _fft_work.data(), _fft_work.data(), scale_flag );
+            _fft->forward( _fft_work.data(), _fft_work.data(), scale );
         }
         else if ( flag == -1 )
         {
-            _fft->backward( _fft_work.data(), _fft_work.data() );
+            _fft->backward( _fft_work.data(), _fft_work.data(), scale );
         }
         else
         {
@@ -204,23 +228,22 @@ class FastFourierTransform
     }
 
   private:
-    std::shared_ptr<heffte::fft3d<BackendType>> _fft;
+    // std::shared_ptr<heffte::fft3d<BackendType>> _fft;
+    std::shared_ptr<FFT_type> _fft;
     Kokkos::View<std::complex<Scalar> *, DeviceType> _fft_work;
 };
 
 //---------------------------------------------------------------------------//
 // FFT creation
 //---------------------------------------------------------------------------//
-template <class BackendType, class Scalar, class DeviceType, class EntityType,
-          class MeshType>
-std::shared_ptr<
-    FastFourierTransform<BackendType, Scalar, EntityType, MeshType, DeviceType>>
+template <class Scalar, class DeviceType, class EntityType, class MeshType>
+std::shared_ptr<FastFourierTransform<Scalar, EntityType, MeshType, DeviceType>>
 createFastFourierTransform( const ArrayLayout<EntityType, MeshType> &layout,
-                            const heffte::plan_options &params )
+                            const FastFourierTransformParams &params )
 {
-    return std::make_shared<FastFourierTransform<
-        BackendType, Scalar, EntityType, MeshType, DeviceType>>( layout,
-                                                                 params );
+    return std::make_shared<
+        FastFourierTransform<Scalar, EntityType, MeshType, DeviceType>>(
+        layout, params );
 }
 
 //---------------------------------------------------------------------------//
