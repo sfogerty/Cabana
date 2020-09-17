@@ -104,7 +104,6 @@ class FastFourierTransform
     template <class Array_t, class FFT_ScaleType>
     void backward( const Array_t &x, const FFT_ScaleType scale ) {}
 
-
     template <class Array_t>
     void FastFourierTransformSetup( const ArrayLayout<entity_type, mesh_type> &layout )
     {
@@ -285,10 +284,7 @@ class HeffteFastFourierTransform : public FastFourierTransform<Scalar, EntityTyp
                 work_view( iw, jw, kw ).real( realpart );
                 work_view( iw, jw, kw ).imag( imagpart );
             } );
-////convert int flag of scale to heffte::scale
 
-
-        // TODO: Expose scaling flag to user
         if ( flag == 1 )
         {
             _fft->forward( _fft_work.data(), _fft_work.data(), scale );
