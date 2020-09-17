@@ -98,35 +98,36 @@ void forwardReverseTest()
     // Copy to the device.
     Kokkos::deep_copy( lhs_view, lhs_host_view );
 
-    //* New heFFTe version for create FFT plans
-    //* Define the FFT backend
-    using backend_tag =
-        heffte::backend::fftw; //* can also be backend::cufft, backend::mkl
-
-    //* Instantiate a set of default parameters according to the backend type
-    heffte::plan_options params = heffte::default_options<backend_tag>();
+    //Create FFT params
+    Experimental::FastFourierTransformParams<TEST_DEVICE> params;
 
     //* Choose the desired options
     //* 1. MPI communication
-    params.use_alltoall = true;
-    // params.use_alltoall = false;  //* MPI point-to-point
+    params.set_alltoall(true);
 
     //* 2. Data exchange type
-    params.use_pencils = true; //* Pencil decomposition
-    // params.use_pencils = false; //* Slab decomposition
+    params.set_pencils(true); //* Pencil decomposition
+    // params.set_pencils(false); //* Slab decomposition
 
     //* 3. Data handling
-    params.use_reorder =
-        true; //* Use data in contiguous memory (requires tensor transposition)
-    // params.use_reorder = false; //* Use strided data (does not require tensor
+    params.set_reorder(true); //* Use data in contiguous memory (requires tensor transposition)
+    // params.set_reorder(false); //* Use strided data (does not require tensor
     // transposition)
 
-    auto fft = Experimental::createFastFourierTransform<backend_tag, double,
+ 
+
+    auto fft = Experimental::createHeffteFastFourierTransform< double,
                                                         TEST_DEVICE>(
         *vector_layout, params );
 
+    auto scaleflag = fft->FFT_ScaleFull;
+    //* Scaling
+    //  FFT_ScaleNone -> no scaling (default)
+    //  FFT_ScaleFull -> full scaling
+    //  FFT_ScaleSymmetric -> symmetric scaling
+
     // Forward transform
-    fft->forward( *lhs );
+    fft->forward( *lhs, scaleflag );
 
     // Reverse transform
     fft->reverse( *lhs );
