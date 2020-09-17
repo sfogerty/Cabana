@@ -98,27 +98,26 @@ void forwardReverseTest()
     // Copy to the device.
     Kokkos::deep_copy( lhs_view, lhs_host_view );
 
-    //Create FFT params
+    // Create FFT params
     Experimental::FastFourierTransformParams<TEST_DEVICE> params;
 
     //* Choose the desired options
     //* 1. MPI communication
-    params.set_alltoall(true);
+    params.set_alltoall( true );
 
     //* 2. Data exchange type
-    params.set_pencils(true); //* Pencil decomposition
+    params.set_pencils( true ); //* Pencil decomposition
     // params.set_pencils(false); //* Slab decomposition
 
     //* 3. Data handling
-    params.set_reorder(true); //* Use data in contiguous memory (requires tensor transposition)
+    params.set_reorder( true ); //* Use data in contiguous memory (requires
+                                //tensor transposition)
     // params.set_reorder(false); //* Use strided data (does not require tensor
     // transposition)
 
- 
-
-    auto fft = Experimental::createHeffteFastFourierTransform< double,
-                                                        TEST_DEVICE>(
-        *vector_layout, params );
+    auto fft =
+        Experimental::createHeffteFastFourierTransform<double, TEST_DEVICE>(
+            *vector_layout, params );
 
     auto scaleflag = fft->FFT_ScaleFull;
     //* Scaling
