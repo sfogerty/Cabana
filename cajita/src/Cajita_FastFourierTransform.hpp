@@ -36,7 +36,8 @@ struct HeffteBackendTraits<Kokkos::Cuda>
 {
     using backend_type = heffte::backend::cufft;
 };
-#endif
+
+#else
 
 // TODO: enable heffte::backend::mkl, etc.
 template <class BackendType>
@@ -44,6 +45,7 @@ struct HeffteBackendTraits
 {
     using backend_type = heffte::backend::fftw;
 };
+#endif
 
 class FastFourierTransformParams
 {
