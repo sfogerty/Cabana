@@ -89,3 +89,22 @@ RUN ARBORX_VERSION=4834bff44c23c9510c6ed93366638dcdf85ab217 && \
     .. && \
     make -j${NPROCS} install && \
     cd ../.. && rm -r arborx
+
+# Install heffte
+ARG HEFFTE_VERSION=1.0.1
+ENV HEFFTE_DIR=/opt/heffte
+RUN HEFFTE_URL=https://bitbucket.org/icl/heffte/get/v${HEFFTE_VERSION}.tar.gz && \
+    HEFFTE_ARCHIVE=heffte.tar.gz && \
+    SCRATCH_DIR=/scratch && mkdir -p ${SCRATCH_DIR} && cd ${SCRATCH_DIR} && \
+    wget --quiet ${HEFFTE_URL} --output-document=${HEFFTE_ARCHIVE} && \
+    mkdir -p heffte && \
+    tar -xf ${HEFFTE_ARCHIVE} -C heffte --strip-components=1 && \
+    cd heffte && \
+    mkdir -p build && cd build && \
+    cmake \
+      -D CMAKE_INSTALL_PREFIX=${HEFFTE_DIR} \
+      -D CMAKE_BUILD_TYPE=Debug \
+      -D Heffte_ENABLE_CUDA=ON \
+    .. && \
+    make -j${NPROCS} install && \
+    rm -rf ${SCRATCH_DIR}

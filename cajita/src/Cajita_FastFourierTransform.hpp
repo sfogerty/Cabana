@@ -28,171 +28,57 @@ namespace Cajita
 namespace Experimental
 {
 //---------------------------------------------------------------------------//
-template <class MemorySpace>
-struct HeffteMemoryTraits;
 
+// TODO: Add HIP backend specialization when available.
 #ifdef KOKKOS_ENABLE_CUDA
 template <>
-struct HeffteMemoryTraits<Kokkos::CudaSpace>
+struct HeffteBackendTraits<Kokkos::Cuda>
 {
-    static constexpr heffte_memory_type_t value = HEFFTE_MEM_GPU;
-};
-
-template <>
-struct HeffteMemoryTraits<Kokkos::CudaUVMSpace>
-{
-    static constexpr heffte_memory_type_t value = HEFFTE_MEM_MANAGED;
+    using backend_type = heffte::backend::cufft;
 };
 #endif
 
-template <>
-struct HeffteMemoryTraits<Kokkos::HostSpace>
+// TODO: enable heffte::backend::mkl, etc.
+template <class BackendType>
+struct HeffteBackendTraits
 {
-    static constexpr heffte_memory_type_t value = HEFFTE_MEM_CPU;
+    using backend_type = heffte::backend::fftw;
 };
 
-//---------------------------------------------------------------------------//
 class FastFourierTransformParams
 {
+    bool alltoall = true;
+    bool pencils = true;
+    bool reorder = true;
+
   public:
-    /*!
-      \brief Default constructor to disable aggregate initialization.
-    */
-    FastFourierTransformParams()
-        : collective( 2 )
-        , exchange( 0 )
-        , packflag( 2 )
-        , scaled( 1 )
-    {
-    }
-
-    /*!
-      \brief Set the collective type.
-      \param type Collective type.
-
-      0: point-to-point
-      1: all-to-all
-      2: combination
-
-      If this function is not used to set the type then 2 is used as the
-      default.
-    */
-    FastFourierTransformParams &setCollectiveType( const int type )
-    {
-        collective = type;
-        return *this;
-    }
-
-    /*!
-      \brief Set the exchange type.
-      \param type Exchange type.
-
-      0: reshape direct from pencil to pencil
-      1: two reshapes from pencil to brick, then brick to pencil
-
-      If this function is not used to set the type then 0 is used as the
-      default.
-    */
-    FastFourierTransformParams &setExchangeType( const int type )
-    {
-        exchange = type;
-        return *this;
-    }
-
-    /*!
-      \brief Set the pack type.
-      \param type Pack type.
-
-      0: array
-      1: pointer
-      2: memcpy
-
-      If this function is not used to set the type then 2 is used as the
-      default.
-    */
-    FastFourierTransformParams &setPackType( const int type )
-    {
-        packflag = type;
-        return *this;
-    }
-
-    /*!
-      \brief Set the scaling type.
-      \param type Scaling type.
-
-      0: Not scaling after forward
-      1: Scaling after forward
-
-      If this function is not used to set the type then 1 is used as the
-      default.
-    */
-    FastFourierTransformParams &setScalingType( const int type )
-    {
-        scaled = type;
-        return *this;
-    }
-
-    // Collective communication type.
-    int collective;
-
-    // Parallel decomposition exchange type.
-    int exchange;
-
-    // Buffer packing type.
-    int packflag;
-
-    // Forward scaling option.
-    int scaled;
+    void setAllToAll( bool value ) { alltoall = value; }
+    void setPencils( bool value ) { pencils = value; }
+    void setReorder( bool value ) { reorder = value; }
+    bool getAllToAll() const { return alltoall; }
+    bool getPencils() const { return pencils; }
+    bool getReorder() const { return reorder; }
 };
 
-//---------------------------------------------------------------------------//
+struct FFTScaleFull
+{
+};
+struct FFTScaleNone
+{
+};
+struct FFTScaleSymmetric
+{
+};
+
 template <class Scalar, class EntityType, class MeshType, class DeviceType>
 class FastFourierTransform
 {
   public:
-    // Types.
-    using value_type = Scalar;
-    using entity_type = EntityType;
-    using mesh_type = MeshType;
-    using device_type = DeviceType;
+    std::array<int, 3> global_high;
+    std::array<int, 3> global_low;
 
-    /*!
-      \brief Constructor
-      \param layout The array layout defining the vector space of the
-      transform.
-      \param params Parameters for the 3D FFT.
-    */
-    FastFourierTransform( const ArrayLayout<EntityType, MeshType> &layout,
-                          const FastFourierTransformParams &params )
-        : _fft( layout.localGrid()->globalGrid().comm() )
+    FastFourierTransform( const ArrayLayout<EntityType, MeshType> &layout )
     {
-        if ( 1 != layout.dofsPerEntity() )
-            throw std::logic_error(
-                "Only 1 complex value per entity allowed in FFT" );
-
-        // Set the memory type. For now we will just do FFTs on the host until
-        // we find the HEFFTE GPU memory bug.
-        _fft.mem_type = HEFFTE_MEM_CPU;
-
-        // Let the fft allocate its own send/receive buffers.
-        _fft.memoryflag = 1;
-
-        // Set parameters.
-        _fft.collective = params.collective;
-        _fft.exchange = params.exchange;
-        _fft.packflag = params.packflag;
-        _fft.scaled = params.scaled;
-
-        // Get the global grid.
-        const auto &global_grid = layout.localGrid()->globalGrid();
-
-        // Get the global dimensions of the problem. K indices move the
-        // fastest because we fix the work array to be layout right.
-        std::array<int, 3> global_num_entity = {
-            global_grid.globalNumEntity( EntityType(), Dim::K ),
-            global_grid.globalNumEntity( EntityType(), Dim::J ),
-            global_grid.globalNumEntity( EntityType(), Dim::I )};
-
         // Get the local dimensions of the problem.
         auto entity_space =
             layout.localGrid()->indexSpace( Own(), EntityType(), Local() );
@@ -201,34 +87,73 @@ class FastFourierTransform
             (int)entity_space.extent( Dim::J ),
             (int)entity_space.extent( Dim::I )};
 
+        // Get the global grid.
+        const auto &global_grid = layout.localGrid()->globalGrid();
+
         // Get the low corner of the global index space on this rank.
-        std::array<int, 3> global_low = {
-            (int)global_grid.globalOffset( Dim::K ),
-            (int)global_grid.globalOffset( Dim::J ),
-            (int)global_grid.globalOffset( Dim::I )};
+        global_low = {(int)global_grid.globalOffset( Dim::K ),
+                      (int)global_grid.globalOffset( Dim::J ),
+                      (int)global_grid.globalOffset( Dim::I )};
 
         // Get the high corner of the global index space on this rank.
-        std::array<int, 3> global_high = {
-            global_low[Dim::I] + local_num_entity[Dim::I] - 1,
-            global_low[Dim::J] + local_num_entity[Dim::J] - 1,
-            global_low[Dim::K] + local_num_entity[Dim::K] - 1};
+        global_high = {global_low[Dim::I] + local_num_entity[Dim::I] - 1,
+                       global_low[Dim::J] + local_num_entity[Dim::J] - 1,
+                       global_low[Dim::K] + local_num_entity[Dim::K] - 1};
+    }
+};
 
-        // Setup the fft.
-        int permute = 0;
-        int fftsize, sendsize, recvsize;
-        _fft.setup( global_num_entity.data(), global_low.data(),
-                    global_high.data(), global_low.data(), global_high.data(),
-                    permute, fftsize, sendsize, recvsize );
+template <class Scalar, class EntityType, class MeshType, class DeviceType>
+class HeffteFastFourierTransform
+    : public FastFourierTransform<Scalar, EntityType, MeshType, DeviceType>
+{
+  public:
+    // Types.
+    using value_type = Scalar;
+    using entity_type = EntityType;
+    using mesh_type = MeshType;
+    using device_type = DeviceType;
+    using exec_space = typename device_type::execution_space;
+    using backend_type = typename HeffteBackendTraits<exec_space>::backend_type;
+
+    /*!
+      \brief Constructor
+      \param layout The array layout defining the vector space of the transform.
+      \param params Parameters for the 3D FFT.
+    */
+    HeffteFastFourierTransform( const ArrayLayout<EntityType, MeshType> &layout,
+                                const FastFourierTransformParams &params )
+        : FastFourierTransform<Scalar, EntityType, MeshType, DeviceType>(
+              layout )
+    {
+        if ( 1 != layout.dofsPerEntity() )
+            throw std::logic_error(
+                "Only 1 complex value per entity allowed in FFT" );
+
+        heffte::box3d inbox = {this->global_low, this->global_high};
+        heffte::box3d outbox = {this->global_low, this->global_high};
+
+        heffte::plan_options heffte_params =
+            heffte::default_options<backend_type>();
+        heffte_params.use_alltoall = params.getAllToAll();
+        heffte_params.use_pencils = params.getPencils();
+        heffte_params.use_reorder = params.getReorder();
+
+        // Set FFT options from given parameters
+        _fft = std::make_shared<heffte::fft3d<backend_type>>(
+            inbox, outbox, layout.localGrid()->globalGrid().comm(),
+            heffte_params );
+
+        int fftsize = std::max( _fft->size_outbox(), _fft->size_inbox() );
 
         // Check the size.
+        auto entity_space =
+            layout.localGrid()->indexSpace( Own(), EntityType(), Local() );
         if ( fftsize < (int)entity_space.size() )
-            throw std::logic_error( "HEFFTE expected allocation size smaller "
+            throw std::logic_error( "Expected FFT allocation size smaller "
                                     "than local grid size" );
 
-        // Allocate the work array.
-        _fft_work = Kokkos::View<Scalar *, DeviceType>(
-            Kokkos::ViewAllocateWithoutInitializing( "fft_work" ),
-            2 * fftsize );
+        _fft_work = Kokkos::View<std::complex<Scalar> *, DeviceType>(
+            Kokkos::ViewAllocateWithoutInitializing( "fft_work" ), fftsize );
     }
 
     /*!
@@ -236,9 +161,19 @@ class FastFourierTransform
       \param in The array on which to perform the forward transform.
     */
     template <class Array_t>
-    void forward( const Array_t &x )
+    void forward( const Array_t &x, const FFTScaleNone )
     {
-        compute( x, 1 );
+        compute( x, 1, heffte::scale::none );
+    }
+    template <class Array_t>
+    void forward( const Array_t &x, const FFTScaleFull )
+    {
+        compute( x, 1, heffte::scale::full );
+    }
+    template <class Array_t>
+    void forward( const Array_t &x, const FFTScaleSymmetric )
+    {
+        compute( x, 1, heffte::scale::symmetric );
     }
 
     /*!
@@ -246,14 +181,23 @@ class FastFourierTransform
      \param out The array on which to perform the reverse transform.
     */
     template <class Array_t>
-    void reverse( const Array_t &x )
+    void reverse( const Array_t &x, const FFTScaleNone )
     {
-        compute( x, -1 );
+        compute( x, -1, heffte::scale::none );
+    }
+    template <class Array_t>
+    void reverse( const Array_t &x, const FFTScaleFull )
+    {
+        compute( x, -1, heffte::scale::full );
+    }
+    template <class Array_t>
+    void reverse( const Array_t &x, const FFTScaleSymmetric )
+    {
+        compute( x, -1, heffte::scale::symmetric );
     }
 
-  public:
     template <class Array_t>
-    void compute( const Array_t &x, const int flag )
+    void compute( const Array_t &x, const int flag, const heffte::scale scale )
     {
         static_assert( is_array<Array_t>::value, "Must use an array" );
         static_assert(
@@ -279,9 +223,10 @@ class FastFourierTransform
         // Create a subview of the work array to write the local data into.
         auto own_space =
             x.layout()->localGrid()->indexSpace( Own(), EntityType(), Local() );
-        auto work_view_space = appendDimension( own_space, 2 );
-        auto work_view = createView<Scalar, Kokkos::LayoutRight, DeviceType>(
-            work_view_space, _fft_work.data() );
+        // auto work_view_space = appendDimension( own_space, 2 );
+        auto work_view =
+            createView<std::complex<Scalar>, Kokkos::LayoutRight, DeviceType>(
+                own_space, _fft_work.data() );
 
         // Copy to the work array. The work array only contains owned data.
         auto x_view = x.view();
@@ -293,21 +238,25 @@ class FastFourierTransform
                 auto iw = i - own_space.min( Dim::I );
                 auto jw = j - own_space.min( Dim::J );
                 auto kw = k - own_space.min( Dim::K );
-                work_view( iw, jw, kw, 0 ) = x_view( i, j, k, 0 ).real();
-                work_view( iw, jw, kw, 1 ) = x_view( i, j, k, 0 ).imag();
+                auto realpart = x_view( i, j, k, 0 ).real();
+                auto imagpart = x_view( i, j, k, 0 ).imag();
+                work_view( iw, jw, kw ).real( realpart );
+                work_view( iw, jw, kw ).imag( imagpart );
             } );
 
-        // Copy to the host. Once we fix the HEFFTE GPU memory bug we wont
-        // need this.
-        auto fft_work_mirror = Kokkos::create_mirror_view_and_copy(
-            Kokkos::HostSpace(), _fft_work );
-
-        // Perform FFT.
-        _fft.compute( fft_work_mirror.data(), fft_work_mirror.data(), flag );
-
-        // Copy back to the work array. Once we fix the HEFFTE GPU memory bug
-        // we wont need this.
-        Kokkos::deep_copy( _fft_work, fft_work_mirror );
+        if ( flag == 1 )
+        {
+            _fft->forward( _fft_work.data(), _fft_work.data(), scale );
+        }
+        else if ( flag == -1 )
+        {
+            _fft->backward( _fft_work.data(), _fft_work.data(), scale );
+        }
+        else
+        {
+            throw std::logic_error(
+                "Only 1:forward and -1:backward are allowed as compute flag" );
+        }
 
         // Copy back to output array.
         Kokkos::parallel_for(
@@ -318,26 +267,51 @@ class FastFourierTransform
                 auto iw = i - own_space.min( Dim::I );
                 auto jw = j - own_space.min( Dim::J );
                 auto kw = k - own_space.min( Dim::K );
-                x_view( i, j, k, 0 ).real() = work_view( iw, jw, kw, 0 );
-                x_view( i, j, k, 0 ).imag() = work_view( iw, jw, kw, 1 );
+                x_view( i, j, k, 0 ).real() = work_view( iw, jw, kw ).real();
+                x_view( i, j, k, 0 ).imag() = work_view( iw, jw, kw ).imag();
             } );
     }
 
   private:
-    HEFFTE::FFT3d<Scalar> _fft;
-    Kokkos::View<Scalar *, DeviceType> _fft_work;
+    std::shared_ptr<heffte::fft3d<backend_type>> _fft;
+    Kokkos::View<std::complex<Scalar> *, DeviceType> _fft_work;
 };
 
 //---------------------------------------------------------------------------//
 // FFT creation
 //---------------------------------------------------------------------------//
 template <class Scalar, class DeviceType, class EntityType, class MeshType>
-std::shared_ptr<FastFourierTransform<Scalar, EntityType, MeshType, DeviceType>>
-createFastFourierTransform( const ArrayLayout<EntityType, MeshType> &layout,
-                            const FastFourierTransformParams &params )
+std::shared_ptr<
+    HeffteFastFourierTransform<Scalar, EntityType, MeshType, DeviceType>>
+createHeffteFastFourierTransform(
+    const ArrayLayout<EntityType, MeshType> &layout,
+    const FastFourierTransformParams &params )
 {
     return std::make_shared<
-        FastFourierTransform<Scalar, EntityType, MeshType, DeviceType>>(
+        HeffteFastFourierTransform<Scalar, EntityType, MeshType, DeviceType>>(
+        layout, params );
+}
+
+template <class Scalar, class DeviceType, class EntityType, class MeshType>
+std::shared_ptr<
+    HeffteFastFourierTransform<Scalar, EntityType, MeshType, DeviceType>>
+createHeffteFastFourierTransform(
+    const ArrayLayout<EntityType, MeshType> &layout )
+{
+    using device_type = DeviceType;
+    using exec_space = typename device_type::execution_space;
+    using backend_type = typename HeffteBackendTraits<exec_space>::backend_type;
+
+    // use default heFFTe params for this backend
+    const heffte::plan_options heffte_params =
+        heffte::default_options<backend_type>();
+    FastFourierTransformParams params;
+    params.setAllToAll( heffte_params.use_alltoall );
+    params.setPencils( heffte_params.use_pencils );
+    params.setReorder( heffte_params.use_reorder );
+
+    return std::make_shared<
+        HeffteFastFourierTransform<Scalar, EntityType, MeshType, DeviceType>>(
         layout, params );
 }
 

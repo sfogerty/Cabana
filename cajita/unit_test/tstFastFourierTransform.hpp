@@ -31,7 +31,8 @@ using namespace Cajita;
 namespace Test
 {
 //---------------------------------------------------------------------------//
-void memoryTest()
+// New heFFTe version - this should be re-done
+/*void memoryTest()
 {
     auto mtype = Experimental::HeffteMemoryTraits<TEST_MEMSPACE>::value;
     HEFFTE::Memory fft_mem;
@@ -41,7 +42,7 @@ void memoryTest()
     double *ptr = (double *)fft_mem.smalloc( nbytes, mtype );
     EXPECT_NE( ptr, nullptr );
     fft_mem.sfree( ptr, mtype );
-}
+}*/
 
 //---------------------------------------------------------------------------//
 void forwardReverseTest()
@@ -97,19 +98,28 @@ void forwardReverseTest()
     // Copy to the device.
     Kokkos::deep_copy( lhs_view, lhs_host_view );
 
-    // Create an FFT
-    auto fft = Experimental::createFastFourierTransform<double, TEST_DEVICE>(
-        *vector_layout, Experimental::FastFourierTransformParams{}
-                            .setCollectiveType( 2 )
-                            .setExchangeType( 0 )
-                            .setPackType( 2 )
-                            .setScalingType( 1 ) );
+    // Create FFT options
+    Experimental::FastFourierTransformParams params;
+
+    // Set MPI communication
+    params.setAllToAll( true );
+
+    // Set data exchange type (false uses slab decomposition)
+    params.setPencils( true );
+
+    // Set data handling (true uses contiguous memory and requires tensor
+    // transposition; false uses strided data with no transposition)
+    params.setReorder( true );
+
+    auto fft =
+        Experimental::createHeffteFastFourierTransform<double, TEST_DEVICE>(
+            *vector_layout, params );
 
     // Forward transform
-    fft->forward( *lhs );
+    fft->forward( *lhs, Experimental::FFTScaleFull() );
 
     // Reverse transform
-    fft->reverse( *lhs );
+    fft->reverse( *lhs, Experimental::FFTScaleNone() );
 
     // Check the results.
     auto lhs_result =
@@ -131,6 +141,8 @@ void forwardReverseTest()
 //---------------------------------------------------------------------------//
 // RUN TESTS
 //---------------------------------------------------------------------------//
+//! There should not be any bug with the modifications made, please contact
+//! heFFTe team otherwise.
 // NOTE: This test exposes the GPU FFT memory bug in HEFFTE. Re-enable this
 // when we enable GPU FFTs to test the bug.
 // TEST( fast_fourier_transform, memory_test )
