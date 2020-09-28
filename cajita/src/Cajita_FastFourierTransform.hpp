@@ -29,20 +29,38 @@ namespace Experimental
 {
 //---------------------------------------------------------------------------//
 
+// TODO: enable heffte::backend::mkl, etc.
+
 // TODO: Add HIP backend specialization when available.
 #ifdef KOKKOS_ENABLE_CUDA
-template <>
-struct HeffteBackendTraits<Kokkos::Cuda>
-{
-    using backend_type = heffte::backend::cufft;
-};
-#endif
-
-// TODO: enable heffte::backend::mkl, etc.
-template <class BackendType>
+template <class BackendType, class Scalar>
 struct HeffteBackendTraits
 {
+};
+template <>
+struct HeffteBackendTraits<Kokkos::Cuda, double>
+{
+    using backend_type = heffte::backend::cufft;
+    using complex_type = cufftDoubleComplex;
+};
+template <>
+struct HeffteBackendTraits<Kokkos::Cuda, float>
+{
+    using backend_type = heffte::backend::cufft;
+    using complex_type = cufftComplex;
+};
+#endif
+template <class Scalar>
+struct HeffteBackendTraits<Kokkos::OpenMP, Scalar>
+{
     using backend_type = heffte::backend::fftw;
+    using complex_type = std::complex<Scalar>;
+};
+template <class Scalar>
+struct HeffteBackendTraits<Kokkos::Serial, Scalar>
+{
+    using backend_type = heffte::backend::fftw;
+    using complex_type = std::complex<Scalar>;
 };
 
 class FastFourierTransformParams
@@ -113,7 +131,8 @@ class HeffteFastFourierTransform
     using mesh_type = MeshType;
     using device_type = DeviceType;
     using exec_space = typename device_type::execution_space;
-    using backend_type = typename HeffteBackendTraits<exec_space>::backend_type;
+    using backend_type = typename HeffteBackendTraits<exec_space, value_type>::backend_type;
+    using complex_type = typename HeffteBackendTraits<exec_space, value_type>::complex_type;
 
     /*!
       \brief Constructor
@@ -152,7 +171,8 @@ class HeffteFastFourierTransform
             throw std::logic_error( "Expected FFT allocation size smaller "
                                     "than local grid size" );
 
-        _fft_work = Kokkos::View<std::complex<Scalar> *, DeviceType>(
+        //_fft_work = Kokkos::View<Kokkos::complex<Scalar> *, DeviceType>(
+        _fft_work = Kokkos::View<complex_type *, DeviceType>(
             Kokkos::ViewAllocateWithoutInitializing( "fft_work" ), fftsize );
     }
 
@@ -196,6 +216,54 @@ class HeffteFastFourierTransform
         compute( x, -1, heffte::scale::symmetric );
     }
 
+    cufftComplex inline copyFromKokkosComplex( Kokkos::complex<value_type> x_view_val, cufftComplex work_view_val ) {
+         auto realpart = x_view_val.real();
+         auto imagpart = x_view_val.imag();
+         work_view_val.x = realpart;
+         work_view_val.y = imagpart;
+         return work_view_val;
+    }
+
+    cufftDoubleComplex inline copyFromKokkosComplex( Kokkos::complex<value_type> x_view_val, cufftDoubleComplex work_view_val ) {
+         auto realpart = x_view_val.real();
+         auto imagpart = x_view_val.imag();
+         work_view_val.x = realpart;
+         work_view_val.y = imagpart;
+         return work_view_val;
+    }
+
+    std::complex<value_type> inline copyFromKokkosComplex( Kokkos::complex<value_type> x_view_val, std::complex<value_type> work_view_val ) {
+         auto realpart = x_view_val.real();
+         auto imagpart = x_view_val.imag();
+         work_view_val.real(realpart);
+         work_view_val.imag(imagpart);
+         return work_view_val;
+    }
+
+    Kokkos::complex<value_type> inline copyToKokkosComplex( cufftComplex work_view_val, Kokkos::complex<value_type> x_view_val ) {
+         auto realpart = work_view_val.x;
+         auto imagpart = work_view_val.y;
+         x_view_val.real() = realpart;
+         x_view_val.imag() = imagpart;
+         return x_view_val;
+    }
+
+    Kokkos::complex<value_type> inline copyToKokkosComplex( cufftDoubleComplex work_view_val, Kokkos::complex<value_type> x_view_val ) {
+         auto realpart = work_view_val.x;
+         auto imagpart = work_view_val.y;
+         x_view_val.real() = realpart;
+         x_view_val.imag() = imagpart;
+         return x_view_val;
+    }
+
+    Kokkos::complex<value_type> inline copyToKokkosComplex( std::complex<value_type> work_view_val, Kokkos::complex<value_type> x_view_val ) {
+         auto realpart = work_view_val.real();
+         auto imagpart = work_view_val.imag();
+         x_view_val.real() = realpart;
+         x_view_val.imag() = imagpart;
+         return x_view_val;
+    }
+
     template <class Array_t>
     void compute( const Array_t &x, const int flag, const heffte::scale scale )
     {
@@ -223,26 +291,24 @@ class HeffteFastFourierTransform
         // Create a subview of the work array to write the local data into.
         auto own_space =
             x.layout()->localGrid()->indexSpace( Own(), EntityType(), Local() );
-        // auto work_view_space = appendDimension( own_space, 2 );
-        auto work_view =
-            createView<std::complex<Scalar>, Kokkos::LayoutRight, DeviceType>(
-                own_space, _fft_work.data() );
 
+        auto work_view = createView<complex_type, Kokkos::LayoutRight, DeviceType>( own_space, _fft_work.data() );
+
+        // TODO: pull this out to template function
         // Copy to the work array. The work array only contains owned data.
         auto x_view = x.view();
-        Kokkos::parallel_for(
-            "fft_copy_x_to_work",
+
+       Kokkos::parallel_for(
+            "fft_copy_x_to_cufft_work",
             createExecutionPolicy( own_space,
-                                   typename DeviceType::execution_space() ),
+                                   exec_space() ),
             KOKKOS_LAMBDA( const int i, const int j, const int k ) {
                 auto iw = i - own_space.min( Dim::I );
                 auto jw = j - own_space.min( Dim::J );
                 auto kw = k - own_space.min( Dim::K );
-                auto realpart = x_view( i, j, k, 0 ).real();
-                auto imagpart = x_view( i, j, k, 0 ).imag();
-                work_view( iw, jw, kw ).real( realpart );
-                work_view( iw, jw, kw ).imag( imagpart );
-            } );
+                work_view(iw, jw, kw) = copyFromKokkosComplex( x_view(i, j, k, 0), work_view(iw, jw, kw) );
+        } );
+
 
         if ( flag == 1 )
         {
@@ -267,15 +333,16 @@ class HeffteFastFourierTransform
                 auto iw = i - own_space.min( Dim::I );
                 auto jw = j - own_space.min( Dim::J );
                 auto kw = k - own_space.min( Dim::K );
-                x_view( i, j, k, 0 ).real() = work_view( iw, jw, kw ).real();
-                x_view( i, j, k, 0 ).imag() = work_view( iw, jw, kw ).imag();
+                x_view( i, j, k, 0 ) = copyToKokkosComplex( work_view( iw, jw, kw ), x_view( i, j, k, 0 ) );
             } );
     }
 
   private:
     std::shared_ptr<heffte::fft3d<backend_type>> _fft;
-    Kokkos::View<std::complex<Scalar> *, DeviceType> _fft_work;
+    Kokkos::View<complex_type *, DeviceType> _fft_work;
 };
+
+
 
 //---------------------------------------------------------------------------//
 // FFT creation
@@ -298,9 +365,10 @@ std::shared_ptr<
 createHeffteFastFourierTransform(
     const ArrayLayout<EntityType, MeshType> &layout )
 {
+    using value_type = Scalar;
     using device_type = DeviceType;
     using exec_space = typename device_type::execution_space;
-    using backend_type = typename HeffteBackendTraits<exec_space>::backend_type;
+    using backend_type = typename HeffteBackendTraits<exec_space, value_type>::backend_type;
 
     // use default heFFTe params for this backend
     const heffte::plan_options heffte_params =
