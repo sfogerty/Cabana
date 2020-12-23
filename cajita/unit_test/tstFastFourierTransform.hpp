@@ -54,14 +54,16 @@ void forwardReverseTest( bool use_default, bool use_params )
     auto ghosted_space = local_grid->indexSpace( Ghost(), Cell(), Local() );
 
     // Create a random vector to transform..
-    auto vector_layout = createArrayLayout( local_grid, 1, Cell() );
-    auto lhs = createArray<Kokkos::complex<double>, TEST_DEVICE>(
-        "lhs", vector_layout );
+    auto cell_space = local_grid->indexSpace( Own(), Cell(), Local() );
+    int num_point = cell_space.size();
+    
+    auto vector_layout = createArrayLayout( local_grid, 2, Cell() );
+    auto lhs = createArray<double, TEST_DEVICE>( "lhs", vector_layout );
     auto lhs_view = lhs->view();
-    auto lhs_host = createArray<Kokkos::complex<double>,
+    auto lhs_host = createArray<double,
                                 typename decltype( lhs_view )::array_layout,
                                 Kokkos::HostSpace>( "lhs_host", vector_layout );
-    auto lhs_host_view = lhs_host->view();
+    auto lhs_host_view = Kokkos::create_mirror_view( lhs_view );
     uint64_t seed =
         global_grid->blockId() + ( 19383747 % ( global_grid->blockId() + 1 ) );
     using rnd_type = Kokkos::Random_XorShift64_Pool<Kokkos::HostSpace>;
@@ -75,10 +77,10 @@ void forwardReverseTest( bool use_default, bool use_params )
                   k < owned_space.max( Dim::K ); ++k )
             {
                 auto rand = pool.get_state( i + j + k );
-                lhs_host_view( i, j, k, 0 ).real() =
+                lhs_host_view( i, j, k, 0 ) =
                     Kokkos::rand<decltype( rand ), double>::draw( rand, 0.0,
                                                                   1.0 );
-                lhs_host_view( i, j, k, 0 ).imag() =
+                lhs_host_view( i, j, k, 1 ) =
                     Kokkos::rand<decltype( rand ), double>::draw( rand, 0.0,
                                                                   1.0 );
             }
@@ -144,10 +146,10 @@ void forwardReverseTest( bool use_default, bool use_params )
             for ( int k = owned_space.min( Dim::K );
                   k < owned_space.max( Dim::K ); ++k )
             {
-                EXPECT_FLOAT_EQ( lhs_host_view( i, j, k, 0 ).real(),
-                                 lhs_result( i, j, k, 0 ).real() );
-                EXPECT_FLOAT_EQ( lhs_host_view( i, j, k, 0 ).imag(),
-                                 lhs_result( i, j, k, 0 ).imag() );
+                EXPECT_FLOAT_EQ( lhs_host_view( i, j, k, 0 ),
+                                 lhs_result( i, j, k, 0 ) );
+                EXPECT_FLOAT_EQ( lhs_host_view( i, j, k, 1 ),
+                                 lhs_result( i, j, k, 1 ) );
             }
 }
 
