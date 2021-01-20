@@ -73,7 +73,6 @@ struct FFTBackendDefault
 };
 } // namespace Impl
 
-
 template <class ArrayEntity, class ArrayMesh, class ArrayDevice,
           class ArrayScalar, class Entity, class Mesh, class Device,
           class Scalar, typename SFINAE = void>
@@ -92,10 +91,9 @@ template <class ArrayEntity, class ArrayMesh, class ArrayDevice,
 struct is_matching_array<
     ArrayEntity, ArrayMesh, ArrayDevice, ArrayScalar, Entity, Mesh, Device,
     Scalar,
-    typename std::enable_if<
-        std::is_same<ArrayEntity, Entity>::value &&
-        std::is_same<ArrayMesh, Mesh>::value &&
-        std::is_same<ArrayDevice, Device>::value>::type>
+    typename std::enable_if<std::is_same<ArrayEntity, Entity>::value &&
+             std::is_same<ArrayMesh, Mesh>::value &&
+             std::is_same<ArrayDevice, Device>::value>::type>
     : public std::true_type
 {
 };
@@ -249,7 +247,7 @@ class FastFourierTransform
 //---------------------------------------------------------------------------//
 // heFFTe
 //---------------------------------------------------------------------------//
-//TODO: dont think need Scalar as template param for these
+// TODO: dont think need Scalar as template param for these
 namespace Impl
 {
 template <class ExecutionSpace, class Scalar, class BackendType>
@@ -416,13 +414,14 @@ class HeffteFastFourierTransform
         // Create a subview of the work array to write the local data into.
         auto own_space =
             x.layout()->localGrid()->indexSpace( Own(), EntityType(), Local() );
-        //auto work_view_space = appendDimension(own_space, 2);
-        //auto work_view =
+        // auto work_view_space = appendDimension(own_space, 2);
+        // auto work_view =
         //    createView<Scalar, Kokkos::LayoutRight, DeviceType>(
         //        work_view_space, _fft_work.data() );
-    //    auto work_view =
-    //        Kokkos::View<std::complex<Scalar>*, Kokkos::LayoutRight, DeviceType>(
-    //            own_space, _fft_work.data() );
+        // auto work_view =
+        //    Kokkos::View<std::complex<Scalar>*, Kokkos::LayoutRight,
+        //    DeviceType>(
+        //        own_space, _fft_work.data() );
         auto work_view =
             createView<complex_type, Kokkos::LayoutRight, DeviceType>(
                 own_space, _fft_work.data() );
@@ -438,10 +437,10 @@ class HeffteFastFourierTransform
                 auto iw = i - own_space.min( Dim::I );
                 auto jw = j - own_space.min( Dim::J );
                 auto kw = k - own_space.min( Dim::K );
-                //work_view( iw, jw, kw, 0 ) = x_view( i, j, k, 0 );
-                //work_view( iw, jw, kw, 1 ) = x_view( i, j, k, 1 );
-                work_view( iw, jw, kw ).real( x_view( i, j, k, 0 ));
-                work_view( iw, jw, kw ).imag( x_view( i, j, k, 1 ));
+                // work_view( iw, jw, kw, 0 ) = x_view( i, j, k, 0 );
+                // work_view( iw, jw, kw, 1 ) = x_view( i, j, k, 1 );
+                work_view( iw, jw, kw ).real( x_view( i, j, k, 0 ) );
+                work_view( iw, jw, kw ).imag( x_view( i, j, k, 1 ) );
             } );
 
         if ( flag == 1 )
@@ -467,8 +466,8 @@ class HeffteFastFourierTransform
                 auto iw = i - own_space.min( Dim::I );
                 auto jw = j - own_space.min( Dim::J );
                 auto kw = k - own_space.min( Dim::K );
-                //x_view( i, j, k, 0 ) = work_view( iw, jw, kw, 0 );
-                //x_view( i, j, k, 1 ) = work_view( iw, jw, kw, 1 );
+                // x_view( i, j, k, 0 ) = work_view( iw, jw, kw, 0 );
+                // x_view( i, j, k, 1 ) = work_view( iw, jw, kw, 1 );
                 x_view( i, j, k, 0 ) = work_view( iw, jw, kw ).real();
                 x_view( i, j, k, 1 ) = work_view( iw, jw, kw ).imag();
             } );
@@ -476,7 +475,7 @@ class HeffteFastFourierTransform
 
   private:
     std::shared_ptr<heffte::fft3d<heffte_backend_type>> _fft;
-    Kokkos::View<complex_type , DeviceType> _fft_work;
+    Kokkos::View<complex_type, DeviceType> _fft_work;
 };
 
 //---------------------------------------------------------------------------//

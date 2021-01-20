@@ -56,13 +56,13 @@ void forwardReverseTest( bool use_default, bool use_params )
     // Create a random vector to transform..
     auto cell_space = local_grid->indexSpace( Own(), Cell(), Local() );
     int num_point = cell_space.size();
-    
+
     auto vector_layout = createArrayLayout( local_grid, 2, Cell() );
     auto lhs = createArray<double, TEST_DEVICE>( "lhs", vector_layout );
     auto lhs_view = lhs->view();
-    auto lhs_host = createArray<double,
-                                typename decltype( lhs_view )::array_layout,
-                                Kokkos::HostSpace>( "lhs_host", vector_layout );
+    auto lhs_host = 
+        createArray<double, typename decltype( lhs_view )::array_layout,
+                    Kokkos::HostSpace>( "lhs_host", vector_layout );
     auto lhs_host_view = Kokkos::create_mirror_view( lhs_view );
     uint64_t seed =
         global_grid->blockId() + ( 19383747 % ( global_grid->blockId() + 1 ) );
