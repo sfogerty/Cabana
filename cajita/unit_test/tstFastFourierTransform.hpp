@@ -60,7 +60,7 @@ void forwardReverseTest( bool use_default, bool use_params )
     auto vector_layout = createArrayLayout( local_grid, 2, Cell() );
     auto lhs = createArray<double, TEST_DEVICE>( "lhs", vector_layout );
     auto lhs_view = lhs->view();
-    auto lhs_host = 
+    auto lhs_host =
         createArray<double, typename decltype( lhs_view )::array_layout,
                     Kokkos::HostSpace>( "lhs_host", vector_layout );
     auto lhs_host_view = Kokkos::create_mirror_view( lhs_view );

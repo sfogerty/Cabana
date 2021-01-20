@@ -92,8 +92,8 @@ struct is_matching_array<
     ArrayEntity, ArrayMesh, ArrayDevice, ArrayScalar, Entity, Mesh, Device,
     Scalar,
     typename std::enable_if<std::is_same<ArrayEntity, Entity>::value &&
-             std::is_same<ArrayMesh, Mesh>::value &&
-             std::is_same<ArrayDevice, Device>::value>::type>
+                            std::is_same<ArrayMesh, Mesh>::value &&
+                            std::is_same<ArrayDevice, Device>::value>::type>
     : public std::true_type
 {
 };
