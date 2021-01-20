@@ -54,9 +54,6 @@ void forwardReverseTest( bool use_default, bool use_params )
     auto ghosted_space = local_grid->indexSpace( Ghost(), Cell(), Local() );
 
     // Create a random vector to transform..
-    auto cell_space = local_grid->indexSpace( Own(), Cell(), Local() );
-    int num_point = cell_space.size();
-
     auto vector_layout = createArrayLayout( local_grid, 2, Cell() );
     auto lhs = createArray<double, TEST_DEVICE>( "lhs", vector_layout );
     auto lhs_view = lhs->view();
