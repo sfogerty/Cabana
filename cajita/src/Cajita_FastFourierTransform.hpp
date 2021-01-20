@@ -198,7 +198,7 @@ class FastFourierTransform
     */
     inline void checkArrayDofs( const int dof )
     {
-        if ( 1 != dof )
+        if ( 2 != dof )
             throw std::logic_error(
                 "Only 1 complex value per entity allowed in FFT" );
     }
