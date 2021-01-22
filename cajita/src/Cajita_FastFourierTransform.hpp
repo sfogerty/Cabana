@@ -336,7 +336,6 @@ class HeffteFastFourierTransform
     using device_type = DeviceType;
     using backend_type = BackendType;
     using exec_space = typename device_type::execution_space;
-    using complex_type = std::complex<value_type>;
     using heffte_backend_type =
         typename Impl::HeffteBackendTraits<exec_space, value_type,
                                            backend_type>::backend_type;
@@ -376,7 +375,7 @@ class HeffteFastFourierTransform
             throw std::logic_error( "Expected FFT allocation size smaller "
                                     "than local grid size" );
 
-        _fft_work = Kokkos::View<complex_type*, DeviceType>(
+        _fft_work = Kokkos::View<Scalar**, DeviceType>(
             Kokkos::ViewAllocateWithoutInitializing( "fft_work" ), fftsize );
     }
 
@@ -422,9 +421,10 @@ class HeffteFastFourierTransform
         //    Kokkos::View<std::complex<Scalar>*, Kokkos::LayoutRight,
         //    DeviceType>(
         //        own_space, _fft_work.data() );
+        auto work_view_space = appendDimension(own_space, 2);
         auto work_view =
-            createView<complex_type, Kokkos::LayoutRight, DeviceType>(
-                own_space, _fft_work.data() );
+            createView<Scalar, Kokkos::LayoutRight, DeviceType>(
+                work_view_space, _fft_work.data() );
 
         // TODO: pull this out to template function
         // Copy to the work array. The work array only contains owned data.
@@ -437,19 +437,19 @@ class HeffteFastFourierTransform
                 auto iw = i - own_space.min( Dim::I );
                 auto jw = j - own_space.min( Dim::J );
                 auto kw = k - own_space.min( Dim::K );
-                // work_view( iw, jw, kw, 0 ) = x_view( i, j, k, 0 );
-                // work_view( iw, jw, kw, 1 ) = x_view( i, j, k, 1 );
-                work_view( iw, jw, kw ).real( x_view( i, j, k, 0 ) );
-                work_view( iw, jw, kw ).imag( x_view( i, j, k, 1 ) );
+                work_view( iw, jw, kw, 0 ) = x_view( i, j, k, 0 );
+                work_view( iw, jw, kw, 1 ) = x_view( i, j, k, 1 );
             } );
 
         if ( flag == 1 )
         {
-            _fft->forward( _fft_work.data(), _fft_work.data(), scale );
+            _fft->forward( reinterpret_cast<std::complex<Scalar>*>( _fft_work.data() ), reinterpret_cast<std::complex<Scalar>*>( _fft_work.data() ), scale );
+            // _fft->forward( _fft_work.data(), _fft_work.data(), scale );
         }
         else if ( flag == -1 )
         {
-            _fft->backward( _fft_work.data(), _fft_work.data(), scale );
+            _fft->backward( reinterpret_cast<std::complex<Scalar>*>( _fft_work.data() ), reinterpret_cast<std::complex<Scalar>*>( _fft_work.data() ), scale );
+            // _fft->backward( _fft_work.data(), _fft_work.data(), scale );
         }
         else
         {
@@ -466,16 +466,14 @@ class HeffteFastFourierTransform
                 auto iw = i - own_space.min( Dim::I );
                 auto jw = j - own_space.min( Dim::J );
                 auto kw = k - own_space.min( Dim::K );
-                // x_view( i, j, k, 0 ) = work_view( iw, jw, kw, 0 );
-                // x_view( i, j, k, 1 ) = work_view( iw, jw, kw, 1 );
-                x_view( i, j, k, 0 ) = work_view( iw, jw, kw ).real();
-                x_view( i, j, k, 1 ) = work_view( iw, jw, kw ).imag();
+                x_view( i, j, k, 0 ) = work_view( iw, jw, kw, 0 );
+                x_view( i, j, k, 1 ) = work_view( iw, jw, kw, 1 );
             } );
     }
 
   private:
     std::shared_ptr<heffte::fft3d<heffte_backend_type>> _fft;
-    Kokkos::View<complex_type*, DeviceType> _fft_work;
+    Kokkos::View<Scalar**, DeviceType> _fft_work;
 };
 
 //---------------------------------------------------------------------------//
