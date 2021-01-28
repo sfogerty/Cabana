@@ -247,28 +247,27 @@ class FastFourierTransform
 //---------------------------------------------------------------------------//
 // heFFTe
 //---------------------------------------------------------------------------//
-// TODO: dont think need Scalar as template param for these
 namespace Impl
 {
-template <class ExecutionSpace, class Scalar, class BackendType>
+template <class ExecutionSpace, class BackendType>
 struct HeffteBackendTraits
 {
 };
 #ifdef Heffte_ENABLE_FFTW
-template <class ExecutionSpace, class Scalar>
-struct HeffteBackendTraits<ExecutionSpace, Scalar, FFTBackendFFTW>
+template <class ExecutionSpace>
+struct HeffteBackendTraits<ExecutionSpace, FFTBackendFFTW>
 {
     using backend_type = heffte::backend::fftw;
 };
-template <class ExecutionSpace, class Scalar>
-struct HeffteBackendTraits<ExecutionSpace, Scalar, Impl::FFTBackendDefault>
+template <class ExecutionSpace>
+struct HeffteBackendTraits<ExecutionSpace, Impl::FFTBackendDefault>
 {
     using backend_type = heffte::backend::fftw;
 };
 #endif
 #ifdef Heffte_ENABLE_MKL
-template <class ExecutionSpace, class Scalar>
-struct HeffteBackendTraits<ExecutionSpace, Scalar, FFTBackendMKL>
+template <class ExecutionSpace>
+struct HeffteBackendTraits<ExecutionSpace, FFTBackendMKL>
 {
     using backend_type = heffte::backend::mkl;
 };
@@ -276,21 +275,15 @@ struct HeffteBackendTraits<ExecutionSpace, Scalar, FFTBackendMKL>
 #ifdef Heffte_ENABLE_CUDA
 #ifdef KOKKOS_ENABLE_CUDA
 template <>
-struct HeffteBackendTraits<Kokkos::Cuda, double, Impl::FFTBackendDefault>
-{
-    using backend_type = heffte::backend::cufft;
-};
-template <>
-struct HeffteBackendTraits<Kokkos::Cuda, float, Impl::FFTBackendDefault>
+struct HeffteBackendTraits<Kokkos::Cuda, Impl::FFTBackendDefault>
 {
     using backend_type = heffte::backend::cufft;
 };
 #endif
 #endif
 #ifdef KOKKOS_ENABLE_HIP
-template <class Scalar>
-struct HeffteBackendTraits<Kokkos::Experimental::HIP, Scalar,
-                           Impl::FFTBackendDefault>
+template <>
+struct HeffteBackendTraits<Kokkos::Experimental::HIP, Impl::FFTBackendDefault>
 {
     using backend_type = heffte::backend::rocfft;
 };
@@ -337,7 +330,7 @@ class HeffteFastFourierTransform
     using backend_type = BackendType;
     using exec_space = typename device_type::execution_space;
     using heffte_backend_type =
-        typename Impl::HeffteBackendTraits<exec_space, value_type,
+        typename Impl::HeffteBackendTraits<exec_space,
                                            backend_type>::backend_type;
 
     /*!
@@ -375,8 +368,9 @@ class HeffteFastFourierTransform
             throw std::logic_error( "Expected FFT allocation size smaller "
                                     "than local grid size" );
 
-        _fft_work = Kokkos::View<Scalar**, DeviceType>(
-            Kokkos::ViewAllocateWithoutInitializing( "fft_work" ), fftsize );
+        _fft_work = Kokkos::View<Scalar*, DeviceType>(
+            Kokkos::ViewAllocateWithoutInitializing( "fft_work" ),
+            2 * fftsize );
     }
 
     /*!
@@ -413,18 +407,9 @@ class HeffteFastFourierTransform
         // Create a subview of the work array to write the local data into.
         auto own_space =
             x.layout()->localGrid()->indexSpace( Own(), EntityType(), Local() );
-        // auto work_view_space = appendDimension(own_space, 2);
-        // auto work_view =
-        //    createView<Scalar, Kokkos::LayoutRight, DeviceType>(
-        //        work_view_space, _fft_work.data() );
-        // auto work_view =
-        //    Kokkos::View<std::complex<Scalar>*, Kokkos::LayoutRight,
-        //    DeviceType>(
-        //        own_space, _fft_work.data() );
-        auto work_view_space = appendDimension(own_space, 2);
-        auto work_view =
-            createView<Scalar, Kokkos::LayoutRight, DeviceType>(
-                work_view_space, _fft_work.data() );
+        auto work_view_space = appendDimension( own_space, 2 );
+        auto work_view = createView<Scalar, Kokkos::LayoutRight, DeviceType>(
+            work_view_space, _fft_work.data() );
 
         // TODO: pull this out to template function
         // Copy to the work array. The work array only contains owned data.
@@ -443,12 +428,18 @@ class HeffteFastFourierTransform
 
         if ( flag == 1 )
         {
-            _fft->forward( reinterpret_cast<std::complex<Scalar>*>( _fft_work.data() ), reinterpret_cast<std::complex<Scalar>*>( _fft_work.data() ), scale );
+            _fft->forward(
+                reinterpret_cast<std::complex<Scalar>*>( _fft_work.data() ),
+                reinterpret_cast<std::complex<Scalar>*>( _fft_work.data() ),
+                scale );
             // _fft->forward( _fft_work.data(), _fft_work.data(), scale );
         }
         else if ( flag == -1 )
         {
-            _fft->backward( reinterpret_cast<std::complex<Scalar>*>( _fft_work.data() ), reinterpret_cast<std::complex<Scalar>*>( _fft_work.data() ), scale );
+            _fft->backward(
+                reinterpret_cast<std::complex<Scalar>*>( _fft_work.data() ),
+                reinterpret_cast<std::complex<Scalar>*>( _fft_work.data() ),
+                scale );
             // _fft->backward( _fft_work.data(), _fft_work.data(), scale );
         }
         else
@@ -473,7 +464,7 @@ class HeffteFastFourierTransform
 
   private:
     std::shared_ptr<heffte::fft3d<heffte_backend_type>> _fft;
-    Kokkos::View<Scalar**, DeviceType> _fft_work;
+    Kokkos::View<Scalar*, DeviceType> _fft_work;
 };
 
 //---------------------------------------------------------------------------//
@@ -510,7 +501,7 @@ auto createHeffteFastFourierTransform(
     using backend_type = BackendType;
     using exec_space = typename device_type::execution_space;
     using heffte_backend_type =
-        typename Impl::HeffteBackendTraits<exec_space, value_type,
+        typename Impl::HeffteBackendTraits<exec_space,
                                            backend_type>::backend_type;
 
     // use default heFFTe params for this backend
